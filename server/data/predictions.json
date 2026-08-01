@@ -1,0 +1,398 @@
+{
+  "cropPredictions": [
+    {
+      "farmerId": "9a2a5d72-ef2f-4b73-b5c9-9329d3bb80e3",
+      "crop": "maize",
+      "confidence": 0.9857142857142858,
+      "soilData": {
+        "N": 90,
+        "P": 42,
+        "K": 43,
+        "ph": 6.5,
+        "temperature": 28,
+        "humidity": 65,
+        "rainfall": 450
+      },
+      "alternatives": [
+        {
+          "crop": "maize",
+          "confidence": 0.9857142857142858
+        },
+        {
+          "crop": "onion",
+          "confidence": 0.9799999999999999
+        },
+        {
+          "crop": "cotton",
+          "confidence": 0.9714285714285715
+        }
+      ],
+      "advisory": [
+        {
+          "type": "irrigation",
+          "title": "Irrigation",
+          "description": "Monitor soil moisture. Reduce irrigation if rainfall is adequate"
+        },
+        {
+          "type": "fertilizer",
+          "title": "Fertilizer",
+          "description": "Maintain current fertilizer schedule. Soil nutrients are adequate"
+        },
+        {
+          "type": "pest",
+          "title": "Pest Control",
+          "description": "Check for fall armyworm. Use biological control agents"
+        }
+      ],
+      "id": "c5183582-2a55-4825-9f45-d89b5393767d",
+      "createdAt": "2025-09-04T19:03:24.354Z"
+    },
+    {
+      "farmerId": "9a2a5d72-ef2f-4b73-b5c9-9329d3bb80e3",
+      "crop": "maize",
+      "confidence": 0.9857142857142858,
+      "soilData": {
+        "N": 85,
+        "P": 40,
+        "K": 38,
+        "ph": 6.6,
+        "temperature": 28,
+        "humidity": 65,
+        "rainfall": 450
+      },
+      "alternatives": [
+        {
+          "crop": "maize",
+          "confidence": 0.9857142857142858
+        },
+        {
+          "crop": "onion",
+          "confidence": 0.9657142857142856
+        },
+        {
+          "crop": "cotton",
+          "confidence": 0.9571428571428572
+        }
+      ],
+      "advisory": [
+        {
+          "type": "irrigation",
+          "title": "Irrigation",
+          "description": "Monitor soil moisture. Reduce irrigation if rainfall is adequate"
+        },
+        {
+          "type": "fertilizer",
+          "title": "Fertilizer",
+          "description": "Maintain current fertilizer schedule. Soil nutrients are adequate"
+        },
+        {
+          "type": "pest",
+          "title": "Pest Control",
+          "description": "Check for fall armyworm. Use biological control agents"
+        }
+      ],
+      "id": "031ce1c3-502a-4e45-97f5-fac1554c234f",
+      "createdAt": "2025-09-04T19:30:33.005Z"
+    },
+    {
+      "farmerId": "9a2a5d72-ef2f-4b73-b5c9-9329d3bb80e3",
+      "crop": "maize",
+      "confidence": 0.9857142857142858,
+      "soilData": {
+        "N": 90,
+        "P": 42,
+        "K": 43,
+        "ph": 6.5,
+        "temperature": 28,
+        "humidity": 65,
+        "rainfall": 450
+      },
+      "alternatives": [
+        {
+          "crop": "maize",
+          "confidence": 0.9857142857142858
+        },
+        {
+          "crop": "onion",
+          "confidence": 0.9799999999999999
+        },
+        {
+          "crop": "cotton",
+          "confidence": 0.9714285714285715
+        }
+      ],
+      "advisory": [
+        {
+          "type": "irrigation",
+          "title": "Irrigation",
+          "description": "Monitor soil moisture. Reduce irrigation if rainfall is adequate"
+        },
+        {
+          "type": "fertilizer",
+          "title": "Fertilizer",
+          "description": "Maintain current fertilizer schedule. Soil nutrients are adequate"
+        },
+        {
+          "type": "pest",
+          "title": "Pest Control",
+          "description": "Check for fall armyworm. Use biological control agents"
+        }
+      ],
+      "id": "3e774f7c-a099-4a3e-a52b-f6e2908fb7c7",
+      "createdAt": "2025-09-04T20:04:09.346Z"
+    },
+    {
+      "farmerId": "9a2a5d72-ef2f-4b73-b5c9-9329d3bb80e3",
+      "crop": "maize",
+      "confidence": 0.9857142857142858,
+      "soilData": {
+        "N": 90,
+        "P": 42,
+        "K": 43,
+        "ph": 6.5,
+        "temperature": 28,
+        "humidity": 65,
+        "rainfall": 450
+      },
+      "alternatives": [
+        {
+          "crop": "maize",
+          "confidence": 0.9857142857142858
+        },
+        {
+          "crop": "onion",
+          "confidence": 0.9799999999999999
+        },
+        {
+          "crop": "cotton",
+          "confidence": 0.9714285714285715
+        }
+      ],
+      "advisory": [
+        {
+          "type": "irrigation",
+          "title": "Irrigation",
+          "description": "Monitor soil moisture. Reduce irrigation if rainfall is adequate"
+        },
+        {
+          "type": "fertilizer",
+          "title": "Fertilizer",
+          "description": "Maintain current fertilizer schedule. Soil nutrients are adequate"
+        },
+        {
+          "type": "pest",
+          "title": "Pest Control",
+          "description": "Check for fall armyworm. Use biological control agents"
+        }
+      ],
+      "id": "c208efbf-939e-40b9-a068-a5578e2416f2",
+      "createdAt": "2025-09-04T21:40:36.439Z"
+    },
+    {
+      "farmerId": "9a2a5d72-ef2f-4b73-b5c9-9329d3bb80e3",
+      "crop": "maize",
+      "confidence": 0.9857142857142858,
+      "soilData": {
+        "N": 90,
+        "P": 42,
+        "K": 43,
+        "ph": 6.5,
+        "temperature": 28,
+        "humidity": 65,
+        "rainfall": 450
+      },
+      "alternatives": [
+        {
+          "crop": "maize",
+          "confidence": 0.9857142857142858
+        },
+        {
+          "crop": "onion",
+          "confidence": 0.9799999999999999
+        },
+        {
+          "crop": "cotton",
+          "confidence": 0.9714285714285715
+        }
+      ],
+      "advisory": [
+        {
+          "type": "irrigation",
+          "title": "Irrigation",
+          "description": "Monitor soil moisture. Reduce irrigation if rainfall is adequate"
+        },
+        {
+          "type": "fertilizer",
+          "title": "Fertilizer",
+          "description": "Maintain current fertilizer schedule. Soil nutrients are adequate"
+        },
+        {
+          "type": "pest",
+          "title": "Pest Control",
+          "description": "Check for fall armyworm. Use biological control agents"
+        }
+      ],
+      "id": "7f13f32d-1df3-4b06-ab9a-6a0e54968fa4",
+      "createdAt": "2025-09-04T21:44:33.135Z"
+    },
+    {
+      "farmerId": "408bad66-2c86-4ac5-85d8-1ca7ff56047a",
+      "crop": "maize",
+      "confidence": 0.9857142857142858,
+      "soilData": {
+        "N": 90,
+        "P": 42,
+        "K": 43,
+        "ph": 6.5,
+        "temperature": 28,
+        "humidity": 65,
+        "rainfall": 450
+      },
+      "alternatives": [
+        {
+          "crop": "maize",
+          "confidence": 0.9857142857142858
+        },
+        {
+          "crop": "onion",
+          "confidence": 0.9799999999999999
+        },
+        {
+          "crop": "cotton",
+          "confidence": 0.9714285714285715
+        }
+      ],
+      "advisory": [
+        {
+          "type": "irrigation",
+          "title": "Irrigation",
+          "description": "Monitor soil moisture. Reduce irrigation if rainfall is adequate"
+        },
+        {
+          "type": "fertilizer",
+          "title": "Fertilizer",
+          "description": "Maintain current fertilizer schedule. Soil nutrients are adequate"
+        },
+        {
+          "type": "pest",
+          "title": "Pest Control",
+          "description": "Check for fall armyworm. Use biological control agents"
+        }
+      ],
+      "id": "fa95b72a-8ecb-4e0f-87e1-e7ea2554b570",
+      "createdAt": "2026-08-01T22:39:22.158Z"
+    }
+  ],
+  "yieldPredictions": [
+    {
+      "farmerId": "8e82fae1-aa71-4ac8-bb40-019b7dfe3492",
+      "crop": "chickpea",
+      "season": "Rabi",
+      "area": 5,
+      "year": 2024,
+      "predictedProduction": 7.5,
+      "predictedYield": 1.5,
+      "id": "a4bb9315-880b-41eb-9699-de7994068add",
+      "createdAt": "2025-09-04T16:44:15.425Z"
+    },
+    {
+      "farmerId": "8e82fae1-aa71-4ac8-bb40-019b7dfe3492",
+      "crop": "maize",
+      "season": "Summer",
+      "area": 6,
+      "year": 2024,
+      "predictedProduction": 20.52,
+      "predictedYield": 3.42,
+      "id": "514d65e2-81a3-473b-b2da-26f3b8f6506e",
+      "createdAt": "2025-09-04T16:44:39.936Z"
+    },
+    {
+      "farmerId": "8e82fae1-aa71-4ac8-bb40-019b7dfe3492",
+      "crop": "pigeonpeas",
+      "season": "Summer",
+      "area": 6,
+      "year": 2024,
+      "predictedProduction": 13.5,
+      "predictedYield": 2.25,
+      "id": "43ec1143-7877-4fa3-9079-75a14c726e81",
+      "createdAt": "2025-09-04T16:44:48.522Z"
+    },
+    {
+      "farmerId": "8e82fae1-aa71-4ac8-bb40-019b7dfe3492",
+      "crop": "coconut",
+      "season": "Summer",
+      "area": 6,
+      "year": 2024,
+      "predictedProduction": 13.5,
+      "predictedYield": 2.25,
+      "id": "5ff00f40-aa4b-45ab-8dfd-b1342cc6dcc8",
+      "createdAt": "2025-09-04T16:44:54.226Z"
+    },
+    {
+      "farmerId": "8e82fae1-aa71-4ac8-bb40-019b7dfe3492",
+      "crop": "coconut",
+      "season": "Summer",
+      "area": 6,
+      "year": 2024,
+      "predictedProduction": 13.5,
+      "predictedYield": 2.25,
+      "id": "bdc4b8b1-597f-4634-9757-d1a9b6026fc0",
+      "createdAt": "2025-09-04T16:44:55.155Z"
+    },
+    {
+      "farmerId": "8e82fae1-aa71-4ac8-bb40-019b7dfe3492",
+      "crop": "coconut",
+      "season": "Summer",
+      "area": 66,
+      "year": 2024,
+      "predictedProduction": 148.5,
+      "predictedYield": 2.25,
+      "id": "caa7387a-84f3-465c-9b2e-c4f3d51dfc22",
+      "createdAt": "2025-09-04T16:45:02.304Z"
+    },
+    {
+      "farmerId": "9a2a5d72-ef2f-4b73-b5c9-9329d3bb80e3",
+      "crop": "maize",
+      "season": "Kharif",
+      "area": 12,
+      "year": 2024,
+      "predictedProduction": 50.16,
+      "predictedYield": 4.18,
+      "id": "8c18ad06-e339-4c3b-aba2-dd85eb07799a",
+      "createdAt": "2025-09-04T19:16:00.753Z"
+    },
+    {
+      "farmerId": "9a2a5d72-ef2f-4b73-b5c9-9329d3bb80e3",
+      "crop": "pigeonpeas",
+      "season": "Summer",
+      "area": 14,
+      "year": 2024,
+      "predictedProduction": 31.5,
+      "predictedYield": 2.25,
+      "id": "5c78f42a-d2f7-4e83-8cec-4cfda3450edf",
+      "createdAt": "2025-09-04T20:04:55.108Z"
+    },
+    {
+      "farmerId": "f24568f3-688f-4a72-a077-2ae4c96c4623",
+      "crop": "chickpea",
+      "season": "Rabi",
+      "area": 0.1,
+      "year": 2023,
+      "predictedProduction": 0.15000000000000002,
+      "predictedYield": 1.5,
+      "id": "bbcbf198-e549-4232-85c8-6b3013fa5840",
+      "createdAt": "2026-06-05T18:45:50.684Z"
+    },
+    {
+      "farmerId": "408bad66-2c86-4ac5-85d8-1ca7ff56047a",
+      "crop": "kidneybeans",
+      "season": "Summer",
+      "area": 0.1,
+      "year": 2023,
+      "predictedProduction": 0.225,
+      "predictedYield": 2.25,
+      "id": "2e1ab5bb-8339-4ef6-87f9-27b3d4b45743",
+      "createdAt": "2026-08-01T22:39:05.303Z"
+    }
+  ]
+}

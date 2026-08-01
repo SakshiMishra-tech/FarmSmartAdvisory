@@ -1,0 +1,189 @@
+[
+  {
+    "id": "maharashtra_mumbai",
+    "district": "mumbai",
+    "N": 88,
+    "P": 44,
+    "K": 42,
+    "ph": 6.7,
+    "temperature": 29,
+    "humidity": 75,
+    "rainfall": 2200
+  },
+  {
+    "id": "maharashtra_pune",
+    "district": "pune",
+    "N": 90,
+    "P": 42,
+    "K": 43,
+    "ph": 6.5,
+    "temperature": 25,
+    "humidity": 70,
+    "rainfall": 350
+  },
+  {
+    "id": "maharashtra_nagpur",
+    "district": "nagpur",
+    "N": 82,
+    "P": 40,
+    "K": 38,
+    "ph": 6.9,
+    "temperature": 27,
+    "humidity": 68,
+    "rainfall": 800
+  },
+  {
+    "id": "maharashtra_nashik",
+    "district": "nashik",
+    "N": 85,
+    "P": 45,
+    "K": 40,
+    "ph": 6.8,
+    "temperature": 26,
+    "humidity": 68,
+    "rainfall": 400
+  },
+  {
+    "id": "maharashtra_aurangabad",
+    "district": "aurangabad",
+    "N": 78,
+    "P": 38,
+    "K": 35,
+    "ph": 7.0,
+    "temperature": 28,
+    "humidity": 65,
+    "rainfall": 300
+  },
+  {
+    "id": "maharashtra_thane",
+    "district": "thane",
+    "N": 90,
+    "P": 42,
+    "K": 43,
+    "ph": 6.5,
+    "temperature": 28,
+    "humidity": 72,
+    "rainfall": 2500
+  },
+  {
+    "id": "punjab_ludhiana",
+    "district": "ludhiana",
+    "N": 120,
+    "P": 55,
+    "K": 65,
+    "ph": 7.2,
+    "temperature": 22,
+    "humidity": 75,
+    "rainfall": 500
+  },
+  {
+    "id": "punjab_amritsar",
+    "district": "amritsar",
+    "N": 118,
+    "P": 53,
+    "K": 63,
+    "ph": 7.1,
+    "temperature": 23,
+    "humidity": 74,
+    "rainfall": 480
+  },
+  {
+    "id": "haryana_gurgaon",
+    "district": "gurgaon",
+    "N": 110,
+    "P": 48,
+    "K": 58,
+    "ph": 6.9,
+    "temperature": 25,
+    "humidity": 70,
+    "rainfall": 420
+  },
+  {
+    "id": "haryana_karnal",
+    "district": "karnal",
+    "N": 115,
+    "P": 50,
+    "K": 60,
+    "ph": 7.0,
+    "temperature": 24,
+    "humidity": 72,
+    "rainfall": 450
+  },
+  {
+    "id": "rajasthan_jaipur",
+    "district": "jaipur",
+    "N": 75,
+    "P": 35,
+    "K": 32,
+    "ph": 7.5,
+    "temperature": 28,
+    "humidity": 60,
+    "rainfall": 280
+  },
+  {
+    "id": "gujarat_ahmedabad",
+    "district": "ahmedabad",
+    "N": 80,
+    "P": 38,
+    "K": 35,
+    "ph": 7.2,
+    "temperature": 30,
+    "humidity": 65,
+    "rainfall": 320
+  },
+  {
+    "id": "odisha_bhubaneswar",
+    "district": "bhubaneswar",
+    "N": 95,
+    "P": 48,
+    "K": 45,
+    "ph": 6.4,
+    "temperature": 28,
+    "humidity": 78,
+    "rainfall": 1200
+  },
+  {
+    "id": "odisha_cuttack",
+    "district": "cuttack",
+    "N": 92,
+    "P": 46,
+    "K": 43,
+    "ph": 6.5,
+    "temperature": 29,
+    "humidity": 76,
+    "rainfall": 1150
+  },
+  {
+    "id": "tamil nadu_chennai",
+    "district": "chennai",
+    "N": 88,
+    "P": 42,
+    "K": 40,
+    "ph": 6.8,
+    "temperature": 30,
+    "humidity": 80,
+    "rainfall": 1100
+  },
+  {
+    "id": "karnataka_bangalore",
+    "district": "bangalore",
+    "N": 85,
+    "P": 40,
+    "K": 38,
+    "ph": 6.6,
+    "temperature": 24,
+    "humidity": 65,
+    "rainfall": 900
+  },
+  {
+    "id": "west bengal_kolkata",
+    "district": "kolkata",
+    "N": 98,
+    "P": 50,
+    "K": 48,
+    "ph": 6.3,
+    "temperature": 28,
+    "humidity": 82,
+    "rainfall": 1400
+  }
+]

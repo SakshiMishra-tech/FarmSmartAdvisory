@@ -1,0 +1,137 @@
+Build me a farmer advisory website with the following requirements:
+
+🎯 Purpose
+
+A progressive web app (PWA) that predicts crop yield using an ML model (from this GitHub repo:
+🔗 Crop-Yield-Prediction-in-India-using-ML
+)
+
+It gives farmers personalized advisory on irrigation, fertilizers, and pests, based on soil, weather, and location data.
+The website must be offline-first, multilingual, and very simple to use.
+
+⚙️ Tech Stack
+🌍 Frontend (Website)
+
+Framework: Next.js (React-based).
+
+Styling: Tailwind CSS + Shadcn/UI (clean, responsive, farmer-friendly).
+
+Icons: Lucide-react icons.
+
+Language Support: i18next (15+ Indian languages).
+
+Voice Output: Web Speech API / Google Text-to-Speech (advisory read aloud).
+
+Offline Support:
+
+Service Workers → cache static pages.
+
+IndexedDB / LocalStorage → store last predictions & farmer profile offline.
+
+Full PWA support (installable like an app).
+
+🔧 Backend (APIs + ML Integration)
+
+Framework: FastAPI (Python).
+
+ML Model: Implement the approach from the GitHub repo above.
+
+Input: crop, season, soil (N, P, K, pH), weather.
+
+Output: yield prediction + confidence range + recommendations.
+
+Storage: JSON files (instead of database).
+
+farmers.json → farmer details + preferences.
+
+soil_data.json → district soil data.
+
+predictions.json → yield predictions history.
+
+APIs:
+
+/login → farmer login.
+
+/get_soil → fetch SHC/district soil data.
+
+/predict → call ML model & return prediction.
+
+/history → return past predictions.
+
+🤖 Machine Learning Layer
+
+Use the pipeline & algorithms from the GitHub repo (Scikit-learn, XGBoost).
+
+Wrap in FastAPI as REST API.
+
+Predictions include confidence range + top 3 advisory tips.
+
+Explainability with SHAP/LIME for trust.
+
+📊 Data Integrations
+
+Weather: IMD API / OpenWeather API (auto-fetched).
+
+Soil: SHC database (fallback to soil_data.json).
+
+Location: Browser Geolocation API.
+
+📲 Website Workflow
+
+Welcome Screen → Ask language preference → save in browser storage.
+
+Login Page → Farmer enters phone/email → saved in farmers.json.
+
+Soil Input Page →
+
+Ask if farmer has SHC.
+
+If yes → guide to fetch SHC data online.
+
+If no → auto-load from soil_data.json based on district.
+
+Prediction Form → Farmer selects crop + season → location + weather auto-fetched.
+
+Prediction Dashboard → Show yield + confidence + 3 tips (irrigation, fertilizer, pest).
+
+Voice Output → Advisory spoken in farmer’s language.
+
+History Page → Show past predictions from predictions.json.
+
+Offline Mode → Last predictions & dashboard cached → works without internet.
+
+🌍 Future Vision
+
+Add IoT soil sensor integration.
+
+Use satellite imagery for pest & rainfall detection.
+
+Build AI-powered farmer marketplace.
+
+Add WhatsApp & SMS advisory bot in local languages.
+
+🎨 UI Guidelines
+
+Very simple UI, suitable for farmers.
+
+All text strictly in the selected language only.
+
+Large icons, one-tap navigation.
+
+Color scheme: Green (growth) + White (clean).
+
+Layout:
+
+Navbar → Home | Prediction | History | Settings.
+
+Mobile-first design (works well on phones).
+
+✅ With this prompt:
+
+Website = Next.js PWA (installable as app, works offline).
+
+Backend = FastAPI + JSON files + ML model from GitHub.
+
+Multilingual + voice-enabled.
+
+Works both online and offline.
