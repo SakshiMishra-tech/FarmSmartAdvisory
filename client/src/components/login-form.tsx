@@ -124,12 +124,20 @@ export function LoginForm({ onLogin }: LoginFormProps) {
           email: formData.email,
           state: formData.state,
           district: formData.district,
-          language: formData.language
+          language: formData.language,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          screenWidth: window.screen.width,
+          screenHeight: window.screen.height,
+          networkType: (navigator as any).connection?.effectiveType || null,
+          userAgent: navigator.userAgent
         })
       });
 
       const result = await res.json();
       if (result.success) {
+        if (result.sessionId) {
+          localStorage.setItem('farmwise-session-id', result.sessionId);
+        }
         onLogin(result.farmer);
         toast({ title: t('toast.loginSuccess') || "Logged in successfully!" });
       } else {

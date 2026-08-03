@@ -1,5 +1,6 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
+import { randomUUID } from "crypto";
 import { storage } from "./storage";
 import { insertFarmerSchema, insertCropPredictionSchema, insertYieldPredictionSchema, insertCalamityPredictionSchema, insertSoilHealthReportSchema, insertWeatherLookupSchema } from "@shared/schema";
 import path from "path";
@@ -427,6 +428,76 @@ async function getWeatherData(lat: number, lon: number, locationInfo?: any) {
   };
 }
 
+// Reusable user-agent parser
+function parseUserAgent(uaString: string) {
+  let browser = "Unknown Browser";
+  let operatingSystem = "Unknown OS";
+  let deviceType = "Desktop";
+
+  if (!uaString) return { browser, operatingSystem, deviceType };
+
+  if (/windows/i.test(uaString)) operatingSystem = "Windows";
+  else if (/macintosh|mac os x/i.test(uaString)) operatingSystem = "macOS";
+  else if (/android/i.test(uaString)) operatingSystem = "Android";
+  else if (/iphone|ipad|ipod/i.test(uaString)) operatingSystem = "iOS";
+  else if (/linux/i.test(uaString)) operatingSystem = "Linux";
+
+  if (/edg/i.test(uaString)) browser = "Microsoft Edge";
+  else if (/chrome|crios/i.test(uaString)) browser = "Chrome";
+  else if (/firefox|fxios/i.test(uaString)) browser = "Firefox";
+  else if (/safari/i.test(uaString)) browser = "Safari";
+  else if (/opera|opr/i.test(uaString)) browser = "Opera";
+
+  if (/mobile|android|iphone|ipod/i.test(uaString)) deviceType = "Mobile";
+  else if (/tablet|ipad/i.test(uaString)) deviceType = "Tablet";
+  else deviceType = "Desktop";
+
+  return { browser, operatingSystem, deviceType };
+}
+
+// Reusable helper for recording login history safely
+async function recordLoginHistory(req: Request, farmer: any, clientData: any = {}) {
+  try {
+    const userAgent = (req.headers['user-agent'] as string) || clientData.userAgent || '';
+    const rawIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip || req.socket?.remoteAddress || null;
+    const ipAddress = rawIp ? rawIp.replace('::ffff:', '') : null;
+    const { browser, operatingSystem, deviceType } = parseUserAgent(userAgent);
+    
+    const sessionId = clientData.sessionId || randomUUID();
+
+    const record = await storage.createLoginHistory({
+      userId: farmer.id,
+      phone: farmer.phone || clientData.phone || null,
+      loginMethod: clientData.loginMethod || "Normal Login",
+      loginTime: new Date(),
+      sessionId: sessionId,
+      browser: clientData.browser || browser,
+      operatingSystem: clientData.operatingSystem || operatingSystem,
+      deviceType: clientData.deviceType || deviceType,
+      userAgent: userAgent || null,
+      ipAddress: ipAddress,
+      state: farmer.state || clientData.state || null,
+      district: farmer.district || clientData.district || null,
+      country: clientData.country || "India",
+      city: clientData.city || null,
+      latitude: clientData.latitude ? parseFloat(clientData.latitude) : null,
+      longitude: clientData.longitude ? parseFloat(clientData.longitude) : null,
+      liveLocationEnabled: Boolean(clientData.liveLocationEnabled),
+      language: farmer.language || clientData.language || "en",
+      timezone: clientData.timezone || "Asia/Kolkata",
+      screenWidth: clientData.screenWidth ? parseInt(clientData.screenWidth, 10) : null,
+      screenHeight: clientData.screenHeight ? parseInt(clientData.screenHeight, 10) : null,
+      networkType: clientData.networkType || null,
+      isOnline: true
+    });
+
+    return { record, sessionId };
+  } catch (error: any) {
+    console.error("⚠️ Non-fatal error recording login history:", error.message || error);
+    return { record: null, sessionId: clientData.sessionId || randomUUID() };
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Enable CORS
   app.use((req, res, next) => {
@@ -506,11 +577,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
           language: language || farmer.language
         });
       }
+
+      // Record login history (safely with try/catch so failure never blocks login)
+      const { sessionId } = await recordLoginHistory(req, farmer, req.body);
       
-      res.json({ success: true, farmer });
+      res.json({ success: true, farmer, sessionId });
     } catch (error: any) {
       console.error('Login error:', error);
       res.status(400).json({ success: false, error: error.message });
+    }
+  });
+
+  // Logout route - updates login_history logoutTime & isOnline
+  app.post('/api/farmers/logout', async (req, res) => {
+    try {
+      const { sessionId } = req.body;
+      if (sessionId) {
+        await storage.updateLogoutHistory(sessionId);
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Logout error:', error);
+      res.json({ success: true });
+    }
+  });
+
+  // Session expiry route - updates login_history logoutTime & isOnline
+  app.post('/api/farmers/session/expire', async (req, res) => {
+    try {
+      const { sessionId } = req.body;
+      if (sessionId) {
+        await storage.updateLogoutHistory(sessionId);
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Session expire error:', error);
+      res.json({ success: true });
     }
   });
 

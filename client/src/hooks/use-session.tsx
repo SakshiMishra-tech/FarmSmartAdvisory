@@ -53,6 +53,19 @@ export function useSessionManager(onLogout: () => void) {
   }, [lastActivity, showWarning]);
 
   const handleLogout = async () => {
+    const sessionId = localStorage.getItem('farmwise-session-id');
+    if (sessionId) {
+      try {
+        await fetch('/api/farmers/logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId })
+        });
+      } catch (e) {
+        console.warn("Logout history update error", e);
+      }
+    }
+
     // Attempt Supabase signout if client is configured
     try {
       await supabase.auth.signOut();
@@ -60,17 +73,18 @@ export function useSessionManager(onLogout: () => void) {
       console.warn("Supabase auth signout failed", e);
     }
     
-    // Clear local storage fallbacks just in case
+    // Clear local storage session
     localStorage.removeItem('farmwise-farmer');
+    localStorage.removeItem('farmwise-session-id');
     localStorage.removeItem('supabase.auth.token');
     
     setShowWarning(false);
     onLogout();
     
     toast({
-      title: "Session Expired",
-      description: "You have been logged out due to inactivity.",
-      variant: "destructive"
+      title: "Logged Out",
+      description: "You have been logged out successfully.",
+      variant: "default"
     });
   };
 

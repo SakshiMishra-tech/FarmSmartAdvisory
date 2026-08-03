@@ -42,6 +42,10 @@ export interface IStorage {
 
   // Generic delete operation for history
   deleteHistoryItem(farmerId: string, type: string, id: string): Promise<void>;
+
+  // Login history operations
+  createLoginHistory(history: Partial<schema.InsertLoginHistory>): Promise<schema.LoginHistory>;
+  updateLogoutHistory(sessionId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -170,6 +174,30 @@ export class DatabaseStorage implements IStorage {
         await db.delete(schema.soilHealthReports).where(eq(schema.soilHealthReports.id, id));
         break;
     }
+  }
+
+  async createLoginHistory(historyData: Partial<schema.InsertLoginHistory>): Promise<schema.LoginHistory> {
+    const id = historyData.id || randomUUID();
+    const sessionId = historyData.sessionId || randomUUID();
+    const [history] = await db.insert(schema.loginHistory).values({
+      ...historyData,
+      id,
+      sessionId,
+      userId: historyData.userId!,
+      loginTime: historyData.loginTime || new Date(),
+      isOnline: true
+    } as any).returning();
+    return (history as unknown) as schema.LoginHistory;
+  }
+
+  async updateLogoutHistory(sessionId: string): Promise<void> {
+    if (!sessionId) return;
+    await db.update(schema.loginHistory)
+      .set({
+        logoutTime: new Date(),
+        isOnline: false
+      })
+      .where(eq(schema.loginHistory.sessionId, sessionId));
   }
 }
 

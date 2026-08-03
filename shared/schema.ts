@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { pgTable, text, timestamp, integer, real, json, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, integer, real, json, uuid, boolean } from "drizzle-orm/pg-core";
 
 export const farmers = pgTable("profiles", {
   id: uuid("id").primaryKey(),
@@ -77,6 +77,37 @@ export const weatherLookups = pgTable("weather_lookups", {
   locationName: text("location_name").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+export const loginHistory = pgTable("login_history", {
+  id: uuid("id").primaryKey(),
+  userId: uuid("user_id").references(() => farmers.id).notNull(),
+  phone: text("phone"),
+  loginMethod: text("login_method").default("Normal Login"),
+  loginTime: timestamp("login_time").defaultNow().notNull(),
+  logoutTime: timestamp("logout_time"),
+  sessionId: uuid("session_id").notNull(),
+  browser: text("browser"),
+  operatingSystem: text("operating_system"),
+  deviceType: text("device_type"),
+  userAgent: text("user_agent"),
+  ipAddress: text("ip_address"),
+  state: text("state"),
+  district: text("district"),
+  country: text("country"),
+  city: text("city"),
+  latitude: real("latitude"),
+  longitude: real("longitude"),
+  liveLocationEnabled: boolean("live_location_enabled").default(false),
+  language: text("language"),
+  timezone: text("timezone"),
+  screenWidth: integer("screen_width"),
+  screenHeight: integer("screen_height"),
+  networkType: text("network_type"),
+  isOnline: boolean("is_online").default(true),
+});
+
+export type LoginHistory = typeof loginHistory.$inferSelect;
+export type InsertLoginHistory = typeof loginHistory.$inferInsert;
 
 export const farmerSchema = z.object({
   id: z.string(),
