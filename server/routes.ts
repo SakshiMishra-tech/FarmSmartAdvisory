@@ -709,13 +709,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const weatherData = await getWeatherData(latitude, longitude, locationInfo);
 
       if (farmerId) {
-        await storage.createWeatherLookup({
-          farmerId: farmerId as string,
-          temperature: weatherData.temperature,
-          humidity: weatherData.humidity,
-          rainfall: weatherData.rainfall,
-          locationName: weatherData.location?.name || 'Unknown'
-        });
+        try {
+          await storage.createWeatherLookup({
+            farmerId: farmerId as string,
+            temperature: weatherData.temperature,
+            humidity: weatherData.humidity,
+            rainfall: weatherData.rainfall,
+            locationName: weatherData.location?.name || 'Unknown'
+          });
+        } catch (dbErr: any) {
+          // Log silently — don't fail the weather response if DB save fails (e.g. FK constraint)
+          console.warn('[weather] Could not save lookup to DB:', dbErr.message);
+        }
       }
 
       res.json({ success: true, weatherData });

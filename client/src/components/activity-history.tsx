@@ -96,7 +96,7 @@ export function ActivityHistory({ farmer, onMakePrediction }: ActivityHistoryPro
   }, [allActivities, filter, typeFilter, search]);
 
   const exportCSV = () => {
-    const headers = ['Date', 'Time', 'Type', 'Title', 'Details'];
+    const headers = [t('history.exportDate'), t('history.exportTime'), t('history.exportType'), t('history.exportTitle'), t('history.exportDetails')];
     const rows = filteredActivities.map(a => [
       format(new Date(a.createdAt), 'yyyy-MM-dd'),
       format(new Date(a.createdAt), 'HH:mm:ss'),
@@ -110,16 +110,16 @@ export function ActivityHistory({ farmer, onMakePrediction }: ActivityHistoryPro
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `FarmWise_History_${format(new Date(), 'yyyyMMdd')}.csv`;
+    link.download = `FarmAdvisory_History_${format(new Date(), 'yyyyMMdd')}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
 
   const exportPDF = () => {
     const doc = new jsPDF();
-    doc.text(`Activity History - ${farmer.name}`, 14, 15);
+    doc.text(`${t('history.title')} - ${farmer.name}`, 14, 15);
     doc.setFontSize(10);
-    doc.text(`Generated on: ${format(new Date(), 'PPpp')}`, 14, 22);
+    doc.text(`${t('history.generatedOn')}: ${format(new Date(), 'PPpp')}`, 14, 22);
     
     const tableData = filteredActivities.map(a => [
       format(new Date(a.createdAt), 'yyyy-MM-dd HH:mm'),
@@ -129,11 +129,11 @@ export function ActivityHistory({ farmer, onMakePrediction }: ActivityHistoryPro
 
     autoTable(doc, {
       startY: 30,
-      head: [['Date & Time', 'Activity Type', 'Summary']],
+      head: [[t('history.tableDateTime'), t('history.tableActivityType'), t('history.tableSummary')]],
       body: tableData,
     });
 
-    doc.save(`FarmWise_History_${format(new Date(), 'yyyyMMdd')}.pdf`);
+    doc.save(`FarmAdvisory_History_${format(new Date(), 'yyyyMMdd')}.pdf`);
   };
 
   const handleDelete = (e: React.MouseEvent, type: string, id: string) => {
@@ -158,7 +158,7 @@ export function ActivityHistory({ farmer, onMakePrediction }: ActivityHistoryPro
       <Card>
         <CardContent className="p-6 text-center">
           <Clock className="w-12 h-12 mx-auto mb-4 opacity-50 animate-spin text-primary" />
-          <p className="text-muted-foreground font-medium">Loading your history...</p>
+          <p className="text-muted-foreground font-medium">{t('history.loading')}</p>
         </CardContent>
       </Card>
     );
@@ -170,14 +170,14 @@ export function ActivityHistory({ farmer, onMakePrediction }: ActivityHistoryPro
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <CardTitle className="flex items-center space-x-2">
             <Clock className="text-primary w-5 h-5" />
-            <span>Activity History</span>
+            <span>{t('history.title')}</span>
           </CardTitle>
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Search history..."
+                placeholder={t('history.searchPlaceholder')}
                 className="pl-8 h-9 w-[200px]"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -187,11 +187,11 @@ export function ActivityHistory({ farmer, onMakePrediction }: ActivityHistoryPro
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={exportCSV}>
                   <FileSpreadsheet className="w-4 h-4 mr-2 text-green-600" />
-                  CSV
+                  {t('history.csv')}
                 </Button>
                 <Button variant="outline" size="sm" onClick={exportPDF}>
                   <FileIcon className="w-4 h-4 mr-2 text-red-600" />
-                  PDF
+                  {t('history.pdf')}
                 </Button>
               </div>
             )}
@@ -200,27 +200,27 @@ export function ActivityHistory({ farmer, onMakePrediction }: ActivityHistoryPro
         
         <div className="flex flex-col sm:flex-row gap-4 mt-4 bg-muted/30 p-3 rounded-lg border">
           <div>
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">Date Range</span>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">{t('history.dateRange')}</span>
             <div className="flex flex-wrap gap-2">
-              <Button variant={filter === 'all' ? 'default' : 'secondary'} size="sm" onClick={() => setFilter('all')} className="h-8 text-xs">All</Button>
-              <Button variant={filter === 'today' ? 'default' : 'secondary'} size="sm" onClick={() => setFilter('today')} className="h-8 text-xs">Today</Button>
-              <Button variant={filter === 'week' ? 'default' : 'secondary'} size="sm" onClick={() => setFilter('week')} className="h-8 text-xs">Last 7 Days</Button>
-              <Button variant={filter === 'month' ? 'default' : 'secondary'} size="sm" onClick={() => setFilter('month')} className="h-8 text-xs">Last 30 Days</Button>
+              <Button variant={filter === 'all' ? 'default' : 'secondary'} size="sm" onClick={() => setFilter('all')} className="h-8 text-xs">{t('history.all')}</Button>
+              <Button variant={filter === 'today' ? 'default' : 'secondary'} size="sm" onClick={() => setFilter('today')} className="h-8 text-xs">{t('history.today')}</Button>
+              <Button variant={filter === 'week' ? 'default' : 'secondary'} size="sm" onClick={() => setFilter('week')} className="h-8 text-xs">{t('history.last7Days')}</Button>
+              <Button variant={filter === 'month' ? 'default' : 'secondary'} size="sm" onClick={() => setFilter('month')} className="h-8 text-xs">{t('history.last30Days')}</Button>
             </div>
           </div>
           <div className="sm:border-l sm:pl-4">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">Prediction Type</span>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">{t('history.predictionType')}</span>
             <select 
               className="h-8 text-xs rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
             >
-              <option value="all">All Types</option>
-              <option value="crop">Crop Recommendation</option>
-              <option value="yield">Yield Prediction</option>
-              <option value="calamity">Calamity Risk</option>
-              <option value="soil">Soil Health</option>
-              <option value="voice">Voice Assistant</option>
+              <option value="all">{t('history.allTypes')}</option>
+              <option value="crop">{t('history.cropRecommendation')}</option>
+              <option value="yield">{t('history.yieldPrediction')}</option>
+              <option value="calamity">{t('history.calamityRisk')}</option>
+              <option value="soil">{t('history.soilHealth')}</option>
+              <option value="voice">{t('history.voiceAssistant')}</option>
             </select>
           </div>
         </div>
@@ -241,7 +241,7 @@ export function ActivityHistory({ farmer, onMakePrediction }: ActivityHistoryPro
                     </div>
                     <div>
                       <h3 className="font-semibold text-base capitalize flex items-center gap-2">
-                        {activity.type === 'voice' ? 'Voice Assistant' : `${activity.type} Prediction`}
+                        {activity.type === 'voice' ? t('history.voiceAssistant') : `${t('history.predictionPrefix')} ${activity.type}`}
                         <span className="text-xs font-normal text-muted-foreground px-2 py-0.5 bg-secondary rounded-full">
                           {format(new Date(activity.createdAt), 'h:mm a')}
                         </span>
@@ -266,32 +266,32 @@ export function ActivityHistory({ farmer, onMakePrediction }: ActivityHistoryPro
                     <div className="grid grid-cols-2 gap-4 text-sm mb-4 bg-muted/30 p-4 rounded-lg">
                       {activity.type === 'crop' && (
                          <>
-                           <div><span className="text-muted-foreground block text-xs uppercase tracking-wider mb-1">Confidence</span> <span className="font-medium bg-primary/10 text-primary px-2 py-0.5 rounded">{(activity.confidence * 100).toFixed(1)}%</span></div>
-                           <div><span className="text-muted-foreground block text-xs uppercase tracking-wider mb-1">Soil pH Used</span> <span className="font-medium">{activity.soilData?.ph || 'N/A'}</span></div>
+                           <div><span className="text-muted-foreground block text-xs uppercase tracking-wider mb-1">{t('history.confidence')}</span> <span className="font-medium bg-primary/10 text-primary px-2 py-0.5 rounded">{(activity.confidence * 100).toFixed(1)}%</span></div>
+                           <div><span className="text-muted-foreground block text-xs uppercase tracking-wider mb-1">{t('history.soilPhUsed')}</span> <span className="font-medium">{activity.soilData?.ph || 'N/A'}</span></div>
                          </>
                       )}
                       {activity.type === 'yield' && (
                          <>
-                           <div><span className="text-muted-foreground block text-xs uppercase tracking-wider mb-1">Season</span> <span className="font-medium capitalize">{activity.season}</span></div>
-                           <div><span className="text-muted-foreground block text-xs uppercase tracking-wider mb-1">Predicted Yield</span> <span className="font-medium">{activity.predictedProduction?.toFixed(1)} tons</span></div>
+                           <div><span className="text-muted-foreground block text-xs uppercase tracking-wider mb-1">{t('history.season')}</span> <span className="font-medium capitalize">{activity.season}</span></div>
+                           <div><span className="text-muted-foreground block text-xs uppercase tracking-wider mb-1">{t('history.predictedYield')}</span> <span className="font-medium">{activity.predictedProduction?.toFixed(1)} tons</span></div>
                          </>
                       )}
                       {activity.type === 'voice' && (
                          <div className="col-span-2">
-                           <span className="text-muted-foreground block text-xs uppercase tracking-wider mb-1">Assistant Response</span> 
+                           <span className="text-muted-foreground block text-xs uppercase tracking-wider mb-1">{t('history.assistantResponse')}</span> 
                            <p className="font-medium mt-1 whitespace-pre-wrap leading-relaxed text-foreground/80 bg-background p-3 rounded border">{activity.response}</p>
                          </div>
                       )}
                       {activity.type === 'calamity' && (
                          <>
-                           <div><span className="text-muted-foreground block text-xs uppercase tracking-wider mb-1">Risk Score</span> <span className="font-medium">{(activity.riskScore * 100).toFixed(0)}/100</span></div>
-                           <div><span className="text-muted-foreground block text-xs uppercase tracking-wider mb-1">Status</span> <span className="font-medium capitalize">{activity.overallRisk}</span></div>
+                           <div><span className="text-muted-foreground block text-xs uppercase tracking-wider mb-1">{t('history.riskScore')}</span> <span className="font-medium">{(activity.riskScore * 100).toFixed(0)}/100</span></div>
+                           <div><span className="text-muted-foreground block text-xs uppercase tracking-wider mb-1">{t('history.status')}</span> <span className="font-medium capitalize">{activity.overallRisk}</span></div>
                          </>
                       )}
                       {activity.type === 'soil' && (
                          <>
-                           <div><span className="text-muted-foreground block text-xs uppercase tracking-wider mb-1">Nitrogen</span> <span className="font-medium">{activity.N || 'N/A'}</span></div>
-                           <div><span className="text-muted-foreground block text-xs uppercase tracking-wider mb-1">Phosphorus</span> <span className="font-medium">{activity.P || 'N/A'}</span></div>
+                           <div><span className="text-muted-foreground block text-xs uppercase tracking-wider mb-1">{t('history.nitrogen')}</span> <span className="font-medium">{activity.N || 'N/A'}</span></div>
+                           <div><span className="text-muted-foreground block text-xs uppercase tracking-wider mb-1">{t('history.phosphorus')}</span> <span className="font-medium">{activity.P || 'N/A'}</span></div>
                          </>
                       )}
                     </div>
@@ -304,7 +304,7 @@ export function ActivityHistory({ farmer, onMakePrediction }: ActivityHistoryPro
                         disabled={deleteMutation.isPending}
                       >
                         <Trash2 className="w-4 h-4 mr-2" />
-                        {deleteMutation.isPending ? 'Deleting...' : 'Delete Record'}
+                        {deleteMutation.isPending ? t('history.deleting') : t('history.deleteRecord')}
                       </Button>
                     </div>
                   </div>
@@ -317,12 +317,12 @@ export function ActivityHistory({ farmer, onMakePrediction }: ActivityHistoryPro
             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
               <Search className="w-8 h-8 text-muted-foreground" />
             </div>
-            <h3 className="font-medium mb-2">No activities found</h3>
+            <h3 className="font-medium mb-2">{t('history.noActivitiesFound')}</h3>
             <p className="text-sm text-muted-foreground mb-4 max-w-sm mx-auto">
-              No records match your current filters. Try adjusting your search, date range, or prediction type.
+              {t('history.noActivitiesDescription')}
             </p>
             <Button onClick={onMakePrediction}>
-              Make a Prediction
+              {t('history.makePrediction')}
             </Button>
           </div>
         )}

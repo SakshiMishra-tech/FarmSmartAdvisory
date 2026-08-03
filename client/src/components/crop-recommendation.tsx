@@ -253,9 +253,9 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
                 <MapPin className="w-5 h-5 animate-bounce" />
               </div>
               <div>
-                <h4 className="font-semibold text-sm text-emerald-950 dark:text-emerald-100">Auto-Detect via Live Location</h4>
+                <h4 className="font-semibold text-sm text-emerald-950 dark:text-emerald-100">{t('crop.liveLocationTitle')}</h4>
                 <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-0.5">
-                  Skip manual entry! Use your GPS location to automatically fetch live weather & soil metrics.
+                  {t('crop.liveLocationDescription')}
                 </p>
               </div>
             </div>
@@ -264,7 +264,7 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
               onClick={handleAutoDetectLocation}
               className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs px-4 py-2 shrink-0 w-full sm:w-auto shadow-sm"
             >
-              <Sparkles className="w-3.5 h-3.5 mr-1.5" /> Use Live Location
+              <Sparkles className="w-3.5 h-3.5 mr-1.5" /> {t('button.useLiveLocation')}
             </Button>
           </div>
 

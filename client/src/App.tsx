@@ -13,6 +13,7 @@ import { supabase } from "@/lib/supabase";
 import { useSessionManager } from "@/hooks/use-session";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { ThemeProvider } from "next-themes";
 
 function Router() {
   const [farmer, setFarmer] = useState<any>(null);
@@ -94,7 +95,7 @@ function Router() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading FarmWise...</p>
+          <p className="text-muted-foreground">Loading FarmAdvisory...</p>
         </div>
       </div>
     );
@@ -138,12 +139,14 @@ function App() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 

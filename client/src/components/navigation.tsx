@@ -15,8 +15,8 @@ export function Navigation({ activeTab, onTabChange, onOpenSettings }: Navigatio
     { id: 'crop-recommendation', label: t('nav.recommendation'), icon: Target },
     { id: 'yield-prediction', label: t('nav.yield'), icon: TrendingUp },
     { id: 'calamity-prediction', label: t('nav.calamity'), icon: AlertTriangle },
-    { id: 'soil-health', label: 'Soil Health', icon: Sprout },
-    { id: 'voice-assistant', label: 'Voice Assistant', icon: Mic },
+    { id: 'soil-health', label: t('nav.soilHealth'), icon: Sprout },
+    { id: 'voice-assistant', label: t('nav.voiceAssistant'), icon: Mic },
     { id: 'history', label: t('nav.history'), icon: Clock }
   ];
 
@@ -61,8 +61,8 @@ export function Navigation({ activeTab, onTabChange, onOpenSettings }: Navigatio
                 data-testid={`nav-${tab.id}`}
               >
                 <Icon className={`w-5 h-5 mb-1 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
-                <div className={`text-xs ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-                  {tab.label.split(' ')[0]} {/* Show first word only on mobile */}
+                <div className={`text-xs text-center leading-tight ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
+                  {tab.label}
                 </div>
               </Button>
             );

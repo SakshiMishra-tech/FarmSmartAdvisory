@@ -40,16 +40,16 @@ export function LoginForm({ onLogin }: LoginFormProps) {
 
   const validateForm = () => {
     const errs: Record<string, string> = {};
-    if (!formData.phone || formData.phone.length !== 10) errs.phone = "Please enter a valid 10-digit Phone Number.";
-    if (!formData.name || formData.name.trim() === '') errs.name = "Please enter Full Name.";
-    if (!formData.state) errs.state = "Please select State.";
-    if (!formData.district) errs.district = "Please select District.";
+    if (!formData.phone || formData.phone.length !== 10) errs.phone = t('toast.phoneInvalid');
+    if (!formData.name || formData.name.trim() === '') errs.name = t('validation.enterName') || "कृपया पूरा नाम दर्ज करें।";
+    if (!formData.state) errs.state = t('validation.selectState') || "कृपया राज्य चुनें।";
+    if (!formData.district) errs.district = t('validation.selectDistrict') || "कृपया जिला चुनें।";
 
     setFormErrors(errs);
     if (Object.keys(errs).length > 0) {
       toast({
-        title: "Validation Error",
-        description: "Please complete all required fields.",
+        title: t('toast.validationError'),
+        description: t('toast.validationRequired'),
         variant: "destructive"
       });
       return false;
@@ -100,8 +100,8 @@ export function LoginForm({ onLogin }: LoginFormProps) {
           }
 
           toast({
-            title: "Welcome Back!",
-            description: `Account found for +91 ${cleanPhone}. Your State is saved, you can update your District if needed.`,
+            title: t('toast.welcomeBack') || "वापस स्वागत है!",
+            description: t('toast.accountFound') || `+91 ${cleanPhone} के लिए खाता मिला।`,
           });
         } else {
           setIsExistingUser(false);
@@ -156,15 +156,15 @@ export function LoginForm({ onLogin }: LoginFormProps) {
           localStorage.setItem('farmwise-session-id', result.sessionId);
         }
         onLogin(result.farmer);
-        toast({ title: "✅ " + (t('toast.loginSuccess') || "Logged in successfully!") });
+        toast({ title: "✅ " + t('toast.loginSuccess') });
       } else {
-        throw new Error(result.error || "Failed to log in profile");
+        throw new Error(result.error || t('toast.loginFailed'));
       }
     } catch (error: any) {
       console.error('Authentication Error:', error);
       toast({
-        title: "Login Error",
-        description: "We couldn't complete login. Please try again.",
+        title: t('toast.loginFailed'),
+        description: t('toast.loginFailedDesc') || "लॉगिन पूरा नहीं हो सका। कृपया पुनः प्रयास करें।",
         variant: "destructive"
       });
     } finally {
@@ -187,8 +187,8 @@ export function LoginForm({ onLogin }: LoginFormProps) {
         district: ''
       }));
       toast({
-        title: "✅ Account Reset",
-        description: "Existing account deleted. You can now register fresh!",
+        title: t('toast.accountReset') || "✅ खाता रीसेट हो गया",
+        description: t('toast.accountResetDesc') || "पुराना खाता हटा दिया गया। अब नए सिरे से पंजीकरण करें!",
       });
     } catch (err) {
       console.error("Error resetting account:", err);
@@ -216,7 +216,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
           </div>
           <div className="text-left">
             <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-none">
-              FarmWise
+              FarmAdvisory
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5 font-medium">
               {t('app.description') || "Your Smart Farming Assistant"}
@@ -252,12 +252,12 @@ export function LoginForm({ onLogin }: LoginFormProps) {
             {(phoneError || formErrors.phone) && (
               <p className="text-[11px] text-destructive mt-0.5 font-medium">{phoneError || formErrors.phone}</p>
             )}
-            {isCheckingPhone && <p className="mt-0.5 text-[11px] text-muted-foreground animate-pulse">Checking registration...</p>}
+            {isCheckingPhone && <p className="mt-0.5 text-[11px] text-muted-foreground animate-pulse">{t('login.checkingPhone') || "खाता जांचा जा रहा है..."}</p>}
             {isExistingUser && (
               <div className="mt-1.5 flex items-center justify-between text-[11px] text-emerald-700 bg-emerald-50 dark:bg-emerald-950/50 p-1.5 px-2.5 rounded-lg border border-emerald-300 font-medium">
                 <div className="flex items-center space-x-1">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  <span>Existing account detected.</span>
+                  <span>{t('login.existingAccount') || "मौजूदा खाता मिला।"}</span>
                 </div>
                 <Button
                   type="button"
@@ -266,7 +266,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
                   onClick={handleResetAccount}
                   className="h-5 px-1.5 text-[10px] text-rose-600 hover:text-rose-700 hover:bg-rose-50 font-bold underline cursor-pointer"
                 >
-                  Start Fresh
+                  {t('login.startFresh') || "नए सिरे से शुरू करें"}
                 </Button>
               </div>
             )}
@@ -275,7 +275,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
           {/* Full Name & Email Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <Label htmlFor="name" className="text-xs font-semibold">Full Name</Label>
+              <Label htmlFor="name" className="text-xs font-semibold">{t('login.name')}</Label>
               <Input
                 id="name"
                 type="text"
@@ -292,8 +292,8 @@ export function LoginForm({ onLogin }: LoginFormProps) {
 
             <div>
               <div className="flex justify-between items-center">
-                <Label htmlFor="email" className="text-xs font-semibold">Email</Label>
-                <span className="text-[10px] text-muted-foreground">(Optional)</span>
+                <Label htmlFor="email" className="text-xs font-semibold">{t('login.email') || "ईमेल"}</Label>
+                <span className="text-[10px] text-muted-foreground">({t('login.optional') || "वैकल्पिक"})</span>
               </div>
               <Input
                 id="email"
@@ -313,7 +313,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
                 <Label htmlFor="state" className="text-xs font-semibold">{t('login.state') || "State"}</Label>
                 {isExistingUser && (
                   <span className="text-[10px] text-muted-foreground flex items-center">
-                    <Lock className="w-2.5 h-2.5 mr-0.5 text-amber-500" /> Locked
+                    <Lock className="w-2.5 h-2.5 mr-0.5 text-amber-500" /> {t('login.locked') || "लॉक्ड"}
                   </span>
                 )}
               </div>
@@ -366,7 +366,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
 
           {/* Preferred Language */}
           <div>
-            <Label htmlFor="language" className="text-xs font-semibold">Preferred Language</Label>
+            <Label htmlFor="language" className="text-xs font-semibold">{t('login.language')}</Label>
             <Select
               value={formData.language}
               onValueChange={handleLanguageChange}
@@ -393,10 +393,10 @@ export function LoginForm({ onLogin }: LoginFormProps) {
             {isLoading ? (
               <span className="flex items-center justify-center">
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                Logging in...
+                {t('loading.login')}
               </span>
             ) : (
-              "LOGIN"
+              t('login.continue')
             )}
           </Button>
         </form>
@@ -405,7 +405,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
         <div className="mt-3 text-center">
           <div className="flex items-center justify-center space-x-1.5 text-[11px] text-muted-foreground">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Your data is secure and stored safely</span>
+            <span>{t('login.secure')}</span>
           </div>
         </div>
       </div>

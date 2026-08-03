@@ -287,20 +287,21 @@ export function VoiceAssistant({ language: appLanguage, farmerId }: VoiceAssista
 
   const uiTexts = {
     hi: {
-      title: "फार्मवाइज़ AI वॉयस सलाहकार",
+      title: "फार्म एडवाइजरी AI वॉयस सलाहकार",
       newChat: "नया चैट",
       replayAudio: "पुनः सुनें",
-      thinking: "फार्मवाइज़ AI उत्तर तैयार कर रहा है...",
+      thinking: "फार्म एडवाइजरी AI उत्तर तैयार कर रहा है...",
       speakQuery: "बोलकर पूछें",
       stopInput: "बोलना बंद करें",
       stopAudio: "आवाज़ बंद करें",
       placeholder: "अपनी खेती से जुड़ा सवाल यहाँ पूछें...",
       send: "भेजें",
       talking: "सोच रहा है...",
-      mode: "HINDI MODE"
+      mode: "हिंदी मोड",
+      emptyDesc: "खेती, खाद, फसल सुरक्षा, मौसम या सिंचाई के बारे में कोई भी सवाल पूछें। आपकी बातचीत प्राकृतिक रूप से जारी रहेगी।"
     },
     or: {
-      title: "ଫାର୍ମୱାଇଜ୍ AI ଭଏସ୍ ପରାମର୍ଶଦାତା",
+      title: "ଫାର୍ମ ଆଡଭାଇଜରୀ AI ଭଏସ୍ ପରାମର୍ଶଦାତା",
       newChat: "ନୂତନ ଚାଟ୍",
       replayAudio: "ପୁନର୍ବାର ଶୁଣନ୍ତୁ",
       thinking: "ଉତ୍ତର ପ୍ରସ୍ତୁତ ହେଉଛି...",
@@ -310,20 +311,22 @@ export function VoiceAssistant({ language: appLanguage, farmerId }: VoiceAssista
       placeholder: "ଆପଣଙ୍କର କୃଷି ପ୍ରଶ୍ନ ଏଠାରେ ପଚାରନ୍ତୁ...",
       send: "ପଠାନ୍ତୁ",
       talking: "ପଠାଯାଉଛି...",
-      mode: "ODIA MODE"
+      mode: "ଓଡ଼ିଆ ମୋଡ",
+      emptyDesc: "ଫସଲ, ସାର, କୀଟ ନିୟନ୍ତ୍ରଣ, ପାଗ ବା ଜଳସେଚନ ବିଷୟରେ ଯେ କୌଣସି ପ୍ରଶ୍ନ ପଚାରନ୍ତୁ।"
     },
     en: {
-      title: "FarmWise AI Voice Advisor",
+      title: "FarmAdvisory AI Voice Advisor",
       newChat: "New Chat",
       replayAudio: "Replay Audio",
-      thinking: "FarmWise AI is thinking...",
+      thinking: "FarmAdvisory AI is thinking...",
       speakQuery: "Speak Query",
       stopInput: "Stop Voice Input",
       stopAudio: "Stop Audio",
       placeholder: "Ask your farming query here...",
       send: "Send",
       talking: "Thinking...",
-      mode: "ENGLISH MODE"
+      mode: "ENGLISH MODE",
+      emptyDesc: "Ask anything about crops, fertilizers, pest control, weather, or irrigation. Your conversation will continue naturally."
     }
   };
 
@@ -373,9 +376,7 @@ export function VoiceAssistant({ language: appLanguage, farmerId }: VoiceAssista
               </div>
               <h3 className="font-semibold text-base text-foreground">{ui.title}</h3>
               <p className="text-xs max-w-md mt-1">
-                {selectedLanguage === 'hi' 
-                  ? "खेती, खाद, फसल सुरक्षा, मौसम या सिंचाई के बारे में कोई भी सवाल पूछें। आपकी बातचीत प्राकृतिक रूप से जारी रहेगी।"
-                  : "Ask anything about crops, fertilizers, pest control, weather, or irrigation. Your conversation will continue naturally."}
+                {ui.emptyDesc || "Ask anything about crops, fertilizers, pest control, weather, or irrigation."}
               </p>
             </div>
           ) : (

@@ -62,22 +62,22 @@ export function SoilHealthPanel({ onNavigateToSoilHealth, onUseDefaultData }: So
             <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
               <Sprout className="w-5 h-5 text-orange-600" />
             </div>
-            <SheetTitle className="text-xl">Soil Health Check</SheetTitle>
+            <SheetTitle className="text-xl">{t('soilHealthCheck.title')}</SheetTitle>
           </div>
           <SheetDescription className="text-base">
-            Do you have a Soil Health Card? We can use it to give you more accurate crop and fertilizer recommendations.
+            {t('soilHealthCheck.description')}
           </SheetDescription>
         </SheetHeader>
         
         <div className="flex flex-col space-y-3 mt-8">
           <Button onClick={handleYes} size="lg" className="w-full bg-green-600 hover:bg-green-700">
-            Yes, I have one
+            {t('soilHealthCheck.yes')}
           </Button>
           <Button onClick={handleNo} variant="outline" size="lg" className="w-full">
-            No, use district averages
+            {t('soilHealthCheck.no')}
           </Button>
           <Button onClick={handleLater} variant="ghost" size="sm" className="w-full mt-4 text-muted-foreground">
-            Ask me later
+            {t('soilHealthCheck.later')}
           </Button>
         </div>
       </SheetContent>

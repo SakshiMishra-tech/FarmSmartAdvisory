@@ -12,6 +12,7 @@ import { useVoice } from '@/hooks/use-voice';
 import { useOffline } from '@/hooks/use-offline';
 import { useToast } from '@/hooks/use-toast';
 import { languages, stateDistrictData } from '@shared/schema';
+import { useTheme } from 'next-themes';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -25,13 +26,14 @@ export function SettingsModal({ isOpen, onClose, farmer, onLogout }: SettingsMod
   const { toast } = useToast();
   const { settings: voiceSettings, updateSettings: updateVoiceSettings } = useVoice();
   const { clearOfflineData, getOfflineData } = useOffline();
+  const { theme: currentTheme, setTheme } = useTheme();
   
   // Account Form State
   const [name, setName] = useState(farmer?.name || '');
   const [phone, setPhone] = useState(farmer?.phone || '');
   const [state, setState] = useState(farmer?.state || '');
   const [district, setDistrict] = useState(farmer?.district || '');
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
+  const [theme, setThemeState] = useState<'light' | 'dark' | 'system'>('system');
   
   // Location State
   const [liveLocationEnabled, setLiveLocationEnabled] = useState(true);
@@ -53,6 +55,12 @@ export function SettingsModal({ isOpen, onClose, farmer, onLogout }: SettingsMod
       setDistrict(farmer.district || '');
     }
   }, [farmer]);
+
+  useEffect(() => {
+    if (currentTheme === 'light' || currentTheme === 'dark' || currentTheme === 'system') {
+      setThemeState(currentTheme);
+    }
+  }, [currentTheme, isOpen]);
 
   const handleStateChange = (newState: string) => {
     setState(newState);
@@ -118,6 +126,11 @@ export function SettingsModal({ isOpen, onClose, farmer, onLogout }: SettingsMod
     });
   };
 
+  const handleThemeChange = (value: 'light' | 'dark' | 'system') => {
+    setThemeState(value);
+    setTheme(value);
+  };
+
   const handleUpdateLocation = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -171,7 +184,7 @@ export function SettingsModal({ isOpen, onClose, farmer, onLogout }: SettingsMod
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `farmwise-export-${name || 'farmer'}-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `farmadvisory-export-${name || 'farmer'}-${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -298,14 +311,14 @@ export function SettingsModal({ isOpen, onClose, farmer, onLogout }: SettingsMod
                 </div>
                 <div>
                   <Label className="text-xs">{t('settings.theme') || "थीम मोड"}</Label>
-                  <Select value={theme} onValueChange={(val: any) => setTheme(val)}>
+                  <Select value={theme} onValueChange={(val) => handleThemeChange(val as 'light' | 'dark' | 'system')}>
                     <SelectTrigger className="mt-1 text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="light">Light Mode</SelectItem>
-                      <SelectItem value="dark">Dark Mode</SelectItem>
-                      <SelectItem value="system">System Default</SelectItem>
+                      <SelectItem value="light">{t('settings.lightMode')}</SelectItem>
+                      <SelectItem value="dark">{t('settings.darkMode')}</SelectItem>
+                      <SelectItem value="system">{t('settings.systemDefault')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -325,14 +338,14 @@ export function SettingsModal({ isOpen, onClose, farmer, onLogout }: SettingsMod
             <div className="p-4 bg-muted/40 rounded-xl border space-y-4">
               <div className="flex items-center space-x-2 font-semibold text-sm border-b pb-2">
                 <MapPin className="w-4 h-4 text-emerald-600" />
-                <span>Location & Geolocation</span>
+                <span>{t('settings.locationTitle')}</span>
               </div>
               
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm font-medium">Live GPS Location</div>
+                  <div className="text-sm font-medium">{t('settings.liveGpsLocation')}</div>
                   <div className="text-xs text-muted-foreground">
-                    {currentCoords ? `Lat: ${currentCoords.lat.toFixed(2)}, Lon: ${currentCoords.lon.toFixed(2)}` : `${farmer?.district || 'District'}, ${farmer?.state || 'State'}`}
+                    {currentCoords ? `${t('settings.latitude')} ${currentCoords.lat.toFixed(2)}, ${t('settings.longitude')} ${currentCoords.lon.toFixed(2)}` : `${farmer?.district || t('login.district')}, ${farmer?.state || t('login.state')}`}
                   </div>
                 </div>
                 <Switch
@@ -348,7 +361,7 @@ export function SettingsModal({ isOpen, onClose, farmer, onLogout }: SettingsMod
                 onClick={handleUpdateLocation}
               >
                 <MapPin className="w-4 h-4 mr-2 text-emerald-600" />
-                Update Current Location via GPS
+                {t('settings.updateGpsLocation')}
               </Button>
             </div>
 
@@ -356,12 +369,12 @@ export function SettingsModal({ isOpen, onClose, farmer, onLogout }: SettingsMod
             <div className="p-4 bg-muted/40 rounded-xl border space-y-4">
               <div className="flex items-center space-x-2 font-semibold text-sm border-b pb-2">
                 <Volume2 className="w-4 h-4 text-blue-600" />
-                <span>Voice Assistant Settings</span>
+                <span>{t('settings.voiceTitle')}</span>
               </div>
               
               <div className="flex items-center justify-between">
                 <Label htmlFor="voice-output" className="text-sm font-medium">
-                  Voice Output Audio
+                  {t('settings.voiceOutputAudio')}
                 </Label>
                 <Switch
                   id="voice-output"
@@ -372,7 +385,7 @@ export function SettingsModal({ isOpen, onClose, farmer, onLogout }: SettingsMod
 
               <div className="space-y-1">
                 <div className="flex justify-between text-xs">
-                  <span>Voice Speed</span>
+                  <span>{t('settings.voiceSpeed')}</span>
                   <span className="font-semibold">{speechSpeed[0]}x</span>
                 </div>
                 <Slider
@@ -389,7 +402,7 @@ export function SettingsModal({ isOpen, onClose, farmer, onLogout }: SettingsMod
             <div className="p-4 bg-muted/40 rounded-xl border space-y-3">
               <div className="flex items-center space-x-2 font-semibold text-sm border-b pb-2">
                 <Shield className="w-4 h-4 text-purple-600" />
-                <span>Privacy & Offline Storage</span>
+                <span>{t('settings.privacyTitle')}</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -400,7 +413,7 @@ export function SettingsModal({ isOpen, onClose, farmer, onLogout }: SettingsMod
                   className="justify-start text-xs"
                 >
                   <Download className="w-3.5 h-3.5 mr-2" />
-                  Export Account JSON
+                  {t('settings.exportJson')}
                 </Button>
                 <Button
                   variant="outline"
@@ -410,7 +423,7 @@ export function SettingsModal({ isOpen, onClose, farmer, onLogout }: SettingsMod
                   className="justify-start text-xs"
                 >
                   <Trash2 className="w-3.5 h-3.5 mr-2" />
-                  Clear Offline Cache
+                  {t('settings.clearOfflineCache')}
                 </Button>
               </div>
             </div>
@@ -419,10 +432,10 @@ export function SettingsModal({ isOpen, onClose, farmer, onLogout }: SettingsMod
             <div className="p-4 bg-destructive/5 border border-destructive/20 rounded-xl space-y-3">
               <div className="flex items-center space-x-2 font-semibold text-sm text-destructive border-b border-destructive/10 pb-2">
                 <AlertTriangle className="w-4 h-4" />
-                <span>Danger Zone</span>
+                <span>{t('settings.dangerZoneTitle')}</span>
               </div>
               <p className="text-xs text-muted-foreground">
-                Deleting your account will clear all locally saved crop data and session tokens.
+                {t('settings.dangerZoneDesc')}
               </p>
               <Button
                 variant="destructive"
@@ -430,7 +443,7 @@ export function SettingsModal({ isOpen, onClose, farmer, onLogout }: SettingsMod
                 className="w-full font-medium text-xs"
                 onClick={() => setShowDeleteConfirm(true)}
               >
-                Delete Account Profile
+                {t('settings.deleteAccount')}
               </Button>
             </div>
 
@@ -438,23 +451,23 @@ export function SettingsModal({ isOpen, onClose, farmer, onLogout }: SettingsMod
             <div className="p-4 bg-muted/30 rounded-xl border text-xs space-y-2">
               <div className="flex items-center space-x-2 font-semibold text-xs border-b pb-1 text-muted-foreground">
                 <Info className="w-3.5 h-3.5" />
-                <span>About FarmWise</span>
+                <span>{t('settings.aboutApp')}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
-                <span>Version:</span>
+                <span>{t('settings.versionLabel')}</span>
                 <span className="font-semibold text-foreground">v1.2.0</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
-                <span>App Build:</span>
+                <span>{t('settings.appBuild')}</span>
                 <span className="font-semibold text-foreground">2026.08.04-prod</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
-                <span>Database Status:</span>
-                <span className="font-semibold text-emerald-600 flex items-center"><CheckCircle2 className="w-3 h-3 mr-1" /> Connected (PostgreSQL)</span>
+                <span>{t('settings.databaseStatus')}</span>
+                <span className="font-semibold text-emerald-600 flex items-center"><CheckCircle2 className="w-3 h-3 mr-1" /> {t('settings.connectedPostgres')}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
-                <span>AI Engine:</span>
-                <span className="font-semibold text-blue-600 flex items-center"><CheckCircle2 className="w-3 h-3 mr-1" /> Online (Gemini AI)</span>
+                <span>{t('settings.aiEngine')}</span>
+                <span className="font-semibold text-blue-600 flex items-center"><CheckCircle2 className="w-3 h-3 mr-1" /> {t('settings.onlineGemini')}</span>
               </div>
             </div>
 
@@ -466,7 +479,7 @@ export function SettingsModal({ isOpen, onClose, farmer, onLogout }: SettingsMod
                 onClick={onLogout}
               >
                 <LogOut className="w-4 h-4 mr-2" />
-                <span>Logout Account</span>
+                <span>{t('settings.logoutAccount')}</span>
               </Button>
             </div>
 
@@ -480,15 +493,15 @@ export function SettingsModal({ isOpen, onClose, farmer, onLogout }: SettingsMod
           <DialogHeader>
             <DialogTitle className="text-destructive flex items-center space-x-2">
               <AlertTriangle className="w-5 h-5" />
-              <span>Confirm Account Deletion</span>
+              <span>{t('settings.confirmDeleteTitle')}</span>
             </DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Are you sure you want to delete your FarmWise profile? All saved offline data will be permanently cleared.
+            {t('settings.confirmDeleteDesc')}
           </p>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDeleteAccount}>Yes, Delete Profile</Button>
+            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>{t('settings.cancel')}</Button>
+            <Button variant="destructive" onClick={handleDeleteAccount}>{t('settings.confirmDelete')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

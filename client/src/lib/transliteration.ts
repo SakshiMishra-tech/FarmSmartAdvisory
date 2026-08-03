@@ -98,11 +98,6 @@ function transliterateWord(word: string, language: Exclude<SupportedScript, "en"
 export function transliterateInput(value: string, language: string): string {
   if ((language !== "hi" && language !== "od") || !value) return value;
 
-  // If input already has Devanagari/Odia characters, preserve it to prevent double-vowel corruption (e.g. अअज)
-  if (/[\u0900-\u097F\u0B00-\u0B7F]/.test(value)) {
-    return value;
-  }
-
   return value
     .split(/(\s+)/)
     .map((part) => (part.trim() ? transliterateWord(part, language) : part))

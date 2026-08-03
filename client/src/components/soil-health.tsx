@@ -117,9 +117,9 @@ export function SoilHealth({ farmer }: SoilHealthProps) {
     setUploadProgress(15);
 
     if (file.size > 10 * 1024 * 1024) {
-      const msg = "File size exceeds 10MB limit. Please upload a smaller document.";
+      const msg = t('soilHealth.uploadTooLarge');
       setExtractionError(msg);
-      toast({ title: 'Upload Error', description: msg, variant: 'destructive' });
+      toast({ title: t('soilHealth.uploadErrorTitle'), description: msg, variant: 'destructive' });
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
@@ -151,14 +151,14 @@ export function SoilHealth({ farmer }: SoilHealthProps) {
           setPreviewData(result.data);
           setExtractionError(null);
           toast({
-            title: '✅ Soil Health Card Validated',
-            description: 'Extracted Nitrogen, Phosphorus, Potassium, and pH values successfully.',
+            title: t('soilHealth.validatedTitle'),
+            description: t('soilHealth.validatedDescription'),
           });
         } else {
-          const errorMsg = result.error || 'The uploaded file is not a valid Soil Health Card or Soil Testing Report.';
+          const errorMsg = result.error || t('soilHealth.invalidDocument');
           setExtractionError(errorMsg);
           toast({
-            title: 'Invalid Document',
+            title: t('soilHealth.invalidDocumentTitle'),
             description: errorMsg,
             variant: 'destructive',
           });
@@ -166,10 +166,10 @@ export function SoilHealth({ farmer }: SoilHealthProps) {
       } catch (err: any) {
         clearInterval(progressInterval);
         console.error("Extraction error:", err);
-        const errStr = "Failed to analyze document. Please ensure you upload a clear photo or PDF of a valid Soil Health Card.";
+        const errStr = t('soilHealth.analysisFailed');
         setExtractionError(errStr);
         toast({
-          title: 'Document Validation Error',
+          title: t('soilHealth.documentValidationErrorTitle'),
           description: errStr,
           variant: 'destructive',
         });
@@ -184,7 +184,7 @@ export function SoilHealth({ farmer }: SoilHealthProps) {
       clearInterval(progressInterval);
       setIsExtracting(false);
       setUploadProgress(0);
-      setExtractionError("Could not read uploaded file.");
+      setExtractionError(t('soilHealth.readFileError'));
       if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
@@ -196,8 +196,8 @@ export function SoilHealth({ farmer }: SoilHealthProps) {
       setData(previewData);
       setPreviewData(null);
       toast({
-        title: '✅ Data Applied',
-        description: 'Form updated with extracted values.',
+        title: t('soilHealth.dataAppliedTitle'),
+        description: t('soilHealth.dataAppliedDescription'),
       });
     }
   };
@@ -216,11 +216,11 @@ export function SoilHealth({ farmer }: SoilHealthProps) {
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      toast({
-        title: 'Validation Error',
-        description: 'Please complete all required fields.',
-        variant: 'destructive'
-      });
+        toast({
+          title: t('soilHealth.validationErrorTitle'),
+          description: t('soilHealth.validationErrorDescription'),
+          variant: 'destructive'
+        });
       return;
     }
 
@@ -231,13 +231,13 @@ export function SoilHealth({ farmer }: SoilHealthProps) {
       setIsSavedSuccess(true);
       
       toast({
-        title: '✅ Soil profile updated.',
-        description: 'Your soil parameters have been saved successfully.',
+        title: t('soilHealth.profileUpdatedTitle'),
+        description: t('soilHealth.profileUpdatedDescription'),
       });
     } catch (error) {
       toast({
-        title: 'Save Failed',
-        description: 'Failed to save soil health data. Please try again.',
+        title: t('soilHealth.saveFailedTitle'),
+        description: t('soilHealth.saveFailedDescription'),
         variant: 'destructive'
       });
     } finally {
@@ -255,17 +255,17 @@ export function SoilHealth({ farmer }: SoilHealthProps) {
             <div>
               <CardTitle className="flex items-center space-x-2">
                 <Sprout className="w-5 h-5 text-primary" />
-                <span>Soil Health Management</span>
+                <span>{t('soilHealth.title')}</span>
               </CardTitle>
               <CardDescription className="mt-1.5">
-                Update your soil data manually or upload a Soil Health Card (SHC) for automatic extraction.
+                {t('soilHealth.description')}
               </CardDescription>
             </div>
             
             {lastSaved && (
               <div className="flex items-center space-x-1.5 text-xs text-muted-foreground bg-muted/50 px-2.5 py-1 rounded-full shrink-0">
                 <CheckCircle2 className="w-3 h-3 text-green-500" />
-                <span>Draft saved at {lastSaved.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                <span>{t('soilHealth.draftSavedAt', { time: lastSaved.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) })}</span>
               </div>
             )}
           </div>
@@ -275,7 +275,7 @@ export function SoilHealth({ farmer }: SoilHealthProps) {
           {/* Progress Bar */}
           <div className="mb-8">
             <div className="flex justify-between text-sm mb-2">
-              <span className="font-medium text-muted-foreground">Profile Completion</span>
+              <span className="font-medium text-muted-foreground">{t('soilHealth.profileCompletion')}</span>
               <span className="font-bold text-primary">{Math.round(progress)}%</span>
             </div>
             <Progress value={progress} className="h-2" />
@@ -285,8 +285,8 @@ export function SoilHealth({ farmer }: SoilHealthProps) {
             <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl flex items-center space-x-3 animate-in fade-in">
               <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
               <div>
-                <h4 className="font-semibold text-sm">Soil Profile Updated!</h4>
-                <p className="text-xs text-emerald-700">Your soil test metrics are saved and will be used for crop advisories.</p>
+                <h4 className="font-semibold text-sm">{t('soilHealth.profileUpdatedTitle')}</h4>
+                <p className="text-xs text-emerald-700">{t('soilHealth.profileUpdatedDescription')}</p>
               </div>
             </div>
           )}
@@ -297,48 +297,48 @@ export function SoilHealth({ farmer }: SoilHealthProps) {
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div className="space-y-2">
-                    <Label htmlFor="N">Nitrogen (N) kg/ha</Label>
+                    <Label htmlFor="N">{t('soilHealth.nitrogenLabel')}</Label>
                     <Input
                       id="N"
                       value={data.N}
                       onChange={handleChange}
-                      placeholder="e.g. 45"
+                      placeholder={t('soilHealth.nitrogenPlaceholder')}
                       className={errors.N ? "border-destructive focus-visible:ring-destructive" : ""}
                     />
                     {errors.N && <p className="text-xs text-destructive flex items-center"><AlertCircle className="w-3 h-3 mr-1"/>{errors.N}</p>}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="P">Phosphorus (P) kg/ha</Label>
+                    <Label htmlFor="P">{t('soilHealth.phosphorusLabel')}</Label>
                     <Input
                       id="P"
                       value={data.P}
                       onChange={handleChange}
-                      placeholder="e.g. 25"
+                      placeholder={t('soilHealth.phosphorusPlaceholder')}
                       className={errors.P ? "border-destructive focus-visible:ring-destructive" : ""}
                     />
                     {errors.P && <p className="text-xs text-destructive flex items-center"><AlertCircle className="w-3 h-3 mr-1"/>{errors.P}</p>}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="K">Potassium (K) kg/ha</Label>
+                    <Label htmlFor="K">{t('soilHealth.potassiumLabel')}</Label>
                     <Input
                       id="K"
                       value={data.K}
                       onChange={handleChange}
-                      placeholder="e.g. 60"
+                      placeholder={t('soilHealth.potassiumPlaceholder')}
                       className={errors.K ? "border-destructive focus-visible:ring-destructive" : ""}
                     />
                     {errors.K && <p className="text-xs text-destructive flex items-center"><AlertCircle className="w-3 h-3 mr-1"/>{errors.K}</p>}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="ph">pH Level</Label>
+                    <Label htmlFor="ph">{t('soilHealth.phLabel')}</Label>
                     <Input
                       id="ph"
                       value={data.ph}
                       onChange={handleChange}
-                      placeholder="e.g. 6.5"
+                      placeholder={t('soilHealth.phPlaceholder')}
                       className={errors.ph ? "border-destructive focus-visible:ring-destructive" : ""}
                     />
                     {errors.ph && <p className="text-xs text-destructive flex items-center"><AlertCircle className="w-3 h-3 mr-1"/>{errors.ph}</p>}
@@ -352,9 +352,9 @@ export function SoilHealth({ farmer }: SoilHealthProps) {
                     className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
                   >
                     {isSubmitting ? (
-                      <span className="flex items-center"><div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-2"/>Saving Soil Data...</span>
+                      <span className="flex items-center"><div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-2"/>{t('soilHealth.saving')}</span>
                     ) : (
-                      <span className="flex items-center"><Save className="w-4 h-4 mr-2"/> Save Profile</span>
+                      <span className="flex items-center"><Save className="w-4 h-4 mr-2"/>{t('soilHealth.saveProfile')}</span>
                     )}
                   </Button>
                 </div>
@@ -365,17 +365,17 @@ export function SoilHealth({ farmer }: SoilHealthProps) {
             <div className="lg:col-span-4 border-l-0 lg:border-l pl-0 lg:pl-8 pt-8 lg:pt-0">
               <div className="flex items-center space-x-2 mb-4">
                 <FileText className="w-5 h-5 text-muted-foreground" />
-                <h3 className="font-medium">Fast Data Entry</h3>
+                <h3 className="font-medium">{t('soilHealth.fastDataEntry')}</h3>
               </div>
               <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-                Have a physical or digital Soil Health Card? Upload a photo or PDF and our system will extract the values for you automatically.
+                {t('soilHealth.fastDataEntryDescription')}
               </p>
 
               {extractionError && (
                 <div className="mb-4 p-3 bg-destructive/10 border border-destructive/30 rounded-lg flex items-start space-x-2.5 text-xs text-destructive animate-in fade-in">
                   <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <p className="font-semibold">Invalid Document</p>
+                    <p className="font-semibold">{t('soilHealth.invalidDocumentTitle')}</p>
                     <p className="mt-0.5 text-destructive/90">{extractionError}</p>
                   </div>
                   <button onClick={() => setExtractionError(null)} className="text-destructive/70 hover:text-destructive">
@@ -387,20 +387,20 @@ export function SoilHealth({ farmer }: SoilHealthProps) {
               {isExtracting ? (
                 <div className="border-2 border-dashed border-primary/30 rounded-xl p-6 flex flex-col items-center justify-center text-center bg-primary/5 min-h-48">
                   <div className="w-10 h-10 rounded-full border-4 border-primary border-t-transparent animate-spin mb-3"></div>
-                  <h4 className="font-medium text-primary text-sm">Scanning Document... ({uploadProgress}%)</h4>
+                  <h4 className="font-medium text-primary text-sm">{t('soilHealth.scanningDocument', { progress: uploadProgress })}</h4>
                   <Progress value={uploadProgress} className="h-1.5 w-full mt-3" />
-                  <p className="text-xs text-muted-foreground mt-2">Extracting N, P, K and pH values using AI.</p>
+                  <p className="text-xs text-muted-foreground mt-2">{t('soilHealth.extractingValues')}</p>
                 </div>
               ) : previewData ? (
                 <div className="border border-border bg-card rounded-xl shadow-sm overflow-hidden animate-in fade-in zoom-in-95">
                   <div className="bg-primary/10 px-4 py-3 flex justify-between items-center border-b">
-                    <span className="font-semibold text-sm text-primary flex items-center"><CheckCircle2 className="w-4 h-4 mr-1.5"/> Extracted Values (Editable)</span>
+                    <span className="font-semibold text-sm text-primary flex items-center"><CheckCircle2 className="w-4 h-4 mr-1.5"/> {t('soilHealth.extractedValues')}</span>
                     <button onClick={cancelPreview} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4"/></button>
                   </div>
                   <div className="p-4 bg-muted/30 space-y-3">
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div>
-                        <Label className="text-[10px]">Nitrogen (N)</Label>
+                        <Label className="text-[10px]">{t('soilHealth.nitrogenShort')}</Label>
                         <Input
                           value={previewData.N}
                           onChange={(e) => setPreviewData({ ...previewData, N: e.target.value })}
@@ -408,7 +408,7 @@ export function SoilHealth({ farmer }: SoilHealthProps) {
                         />
                       </div>
                       <div>
-                        <Label className="text-[10px]">Phosphorus (P)</Label>
+                        <Label className="text-[10px]">{t('soilHealth.phosphorusShort')}</Label>
                         <Input
                           value={previewData.P}
                           onChange={(e) => setPreviewData({ ...previewData, P: e.target.value })}
@@ -416,7 +416,7 @@ export function SoilHealth({ farmer }: SoilHealthProps) {
                         />
                       </div>
                       <div>
-                        <Label className="text-[10px]">Potassium (K)</Label>
+                        <Label className="text-[10px]">{t('soilHealth.potassiumShort')}</Label>
                         <Input
                           value={previewData.K}
                           onChange={(e) => setPreviewData({ ...previewData, K: e.target.value })}
@@ -424,7 +424,7 @@ export function SoilHealth({ farmer }: SoilHealthProps) {
                         />
                       </div>
                       <div>
-                        <Label className="text-[10px]">pH Level</Label>
+                        <Label className="text-[10px]">{t('soilHealth.phShort')}</Label>
                         <Input
                           value={previewData.ph}
                           onChange={(e) => setPreviewData({ ...previewData, ph: e.target.value })}
@@ -433,7 +433,7 @@ export function SoilHealth({ farmer }: SoilHealthProps) {
                       </div>
                     </div>
                     <Button onClick={applyPreview} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white" size="sm">
-                      Apply Extracted Values
+                      {t('soilHealth.applyExtractedValues')}
                     </Button>
                   </div>
                 </div>
@@ -445,8 +445,8 @@ export function SoilHealth({ farmer }: SoilHealthProps) {
                   <div className="p-3 bg-background rounded-full shadow-sm mb-3 group-hover:scale-105 transition-transform">
                     <UploadCloud className="w-6 h-6 text-primary" />
                   </div>
-                  <h4 className="font-medium text-sm">Click to upload</h4>
-                  <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, or PDF</p>
+                  <h4 className="font-medium text-sm">{t('soilHealth.clickToUpload')}</h4>
+                  <p className="text-xs text-muted-foreground mt-1">{t('soilHealth.uploadTypes')}</p>
                   <input 
                     type="file" 
                     className="hidden" 
