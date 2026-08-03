@@ -6,10 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Mic, MicOff, Volume2, VolumeX, Trash2, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { transliterateInput } from '@/lib/transliteration';
+import { buildVoiceApiUrl } from '@/lib/api';
 
 interface VoiceAssistantProps {
   onCommand?: (command: string) => void;
   language?: string;
+  farmerId: string;
 }
 
 interface Conversation {
@@ -20,7 +22,7 @@ interface Conversation {
   language: string;
 }
 
-const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand, language: appLanguage }) => {
+const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand, language: appLanguage, farmerId }) => {
   const { t } = useTranslation();
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -42,41 +44,25 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand, language: ap
     or: 'or-IN'
   };
 
-  // Load conversation history from localStorage and backend on component mount
+  // Load conversation history from backend on component mount
   useEffect(() => {
     const loadHistory = async () => {
-      // Load from localStorage first
-      const savedHistory = localStorage.getItem('voice-assistant-history');
-      if (savedHistory) {
-        try {
-          const parsedHistory = JSON.parse(savedHistory).map((item: any) => ({
-            ...item,
-            timestamp: new Date(item.timestamp)
-          }));
-          setConversationHistory(parsedHistory);
-        } catch (error) {
-          console.error('Error loading conversation history:', error);
-        }
-      }
-
-      // Also try to load from backend
+      if (!farmerId) return;
       try {
-        const response = await fetch('http://localhost:8002/conversations');
+        const response = await fetch(buildVoiceApiUrl(`/api/conversations?farmerId=${farmerId}`));
         if (response.ok) {
-          const data = await response.json();
-          const backendHistory = data.conversations.map((item: any) => ({
-            ...item,
-            timestamp: new Date(item.timestamp)
-          }));
-          
-          // Merge with local history (avoid duplicates)
-          setConversationHistory(prev => {
-            const combined = [...prev, ...backendHistory];
-            const unique = combined.filter((item, index, self) => 
-              index === self.findIndex(t => t.id === item.id)
-            );
-            return unique.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-          });
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const data = await response.json();
+            const backendHistory = data.conversations.map((item: any) => ({
+              ...item,
+              timestamp: new Date(item.createdAt || item.timestamp)
+            }));
+            
+            setConversationHistory(backendHistory);
+          } else {
+            console.warn('Backend returned non-JSON response for history. Likely a configuration issue.');
+          }
         }
       } catch (error) {
         console.log('Backend conversation history not available:', error);
@@ -84,14 +70,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand, language: ap
     };
 
     loadHistory();
-  }, []);
-
-  // Save conversation history to localStorage whenever it changes
-  useEffect(() => {
-    if (conversationHistory.length > 0) {
-      localStorage.setItem('voice-assistant-history', JSON.stringify(conversationHistory));
-    }
-  }, [conversationHistory]);
+  }, [farmerId]);
 
   // Add conversation to history
   const addToHistory = (question: string, answer: string, language: string) => {
@@ -108,11 +87,10 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand, language: ap
   // Clear conversation history
   const clearHistory = async () => {
     setConversationHistory([]);
-    localStorage.removeItem('voice-assistant-history');
     
-    // Also clear backend history
+    // Clear backend history
     try {
-      await fetch('http://localhost:8002/conversations', {
+      await fetch(buildVoiceApiUrl(`/api/conversations?farmerId=${farmerId}`), {
         method: 'DELETE'
       });
     } catch (error) {
@@ -130,19 +108,25 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand, language: ap
       setResponse('');
       setError(null);
 
-      const res = await fetch('http://localhost:8002/voice-query', {
+      const res = await fetch(buildVoiceApiUrl('/api/voice-query'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           query,
-          language: backendLanguage
+          language: backendLanguage,
+          farmerId
         }),
       });
 
       if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
+        throw new Error(`Server returned ${res.status}`);
+      }
+
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Server returned an invalid response (not JSON). Please check your API configuration.');
       }
 
       const data = await res.json();
@@ -159,7 +143,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand, language: ap
       }
     } catch (error) {
       console.error('Error sending typed query:', error);
-      setError(error instanceof Error ? error.message : 'An error occurred');
+      setError(error instanceof Error ? error.message : 'Connection error. Please try again.');
     }
   };
 
@@ -225,20 +209,26 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand, language: ap
           setResponse(''); // Clear previous response
           
           try {
-            const res = await fetch('http://localhost:8002/voice-query', {
+            const res = await fetch(buildVoiceApiUrl('/api/voice-query'), {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({ 
                 query: finalTranscript,
-                language: backendLanguage
+                language: backendLanguage,
+                farmerId
               }),
             });
 
             if (!res.ok) {
               console.error(`HTTP error! status: ${res.status}`);
-              throw new Error(`HTTP error! status: ${res.status}`);
+              throw new Error(`Server returned ${res.status}`);
+            }
+
+            const contentType = res.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+              throw new Error('Server returned an invalid response. API configuration might be wrong.');
             }
 
             const data = await res.json();
@@ -260,7 +250,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand, language: ap
             
           } catch (error) {
             console.error('Error in voice recognition:', error);
-            setError(error instanceof Error ? error.message : 'An error occurred');
+            setError(error instanceof Error ? error.message : 'Connection error. Please try again.');
             setResponse('');
           }
         }
@@ -425,7 +415,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand, language: ap
                     <Volume2 className="w-3 h-3" />
                   </Button>
                 </div>
-                <p className="text-sm">{response}</p>
+                <p className="text-sm whitespace-pre-wrap leading-relaxed">{response}</p>
               </div>
             )}
           </div>
@@ -474,7 +464,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand, language: ap
                   
                   <div>
                     <p className="text-xs font-medium text-muted-foreground mb-1">{t('voice.assistantReplied')}</p>
-                    <p className="text-sm">{conversation.answer}</p>
+                    <p className="text-sm whitespace-pre-wrap leading-relaxed">{conversation.answer}</p>
                   </div>
                   
                   <Button

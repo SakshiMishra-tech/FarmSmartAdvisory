@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { MapPin, Sparkles, Target, Volume2, Droplets, Beaker, Bug, Lightbulb, Cloud, Wheat } from 'lucide-react';
+import { MapPin, Sparkles, Target, Volume2, Droplets, Beaker, Bug, Lightbulb, Cloud, Wheat, AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
@@ -32,8 +32,17 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
     rainfall: ''
   });
   
-  const [hasSHC, setHasSHC] = useState(false);
+  const hasSHC = false;
   const [prediction, setPrediction] = useState<any>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (prediction && resultsRef.current) {
+      setTimeout(() => {
+        resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [prediction]);
 
   const localizeCrop = (crop: string) => t(getLocalizedCropName(crop, farmer.language));
   const getAdvisoryText = (tip: any) => {
@@ -58,17 +67,24 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
   });
 
   // Fetch weather data
-  const { data: weatherData, refetch: refetchWeather } = useQuery({
-    queryKey: ['/api/weather'],
+  const { data: weatherData, refetch: refetchWeather, isLoading: isLoadingWeather, isError: isWeatherError } = useQuery({
+    queryKey: ['/api/weather', location?.latitude, location?.longitude, farmer.district],
     queryFn: async () => {
-      if (!location) {
-        getCurrentLocation();
+      let url = `/api/weather?farmerId=${farmer.id}`;
+      if (location) {
+        url += `&lat=${location.latitude}&lon=${location.longitude}`;
+      } else if (farmer.district) {
+        url += `&district=${encodeURIComponent(farmer.district)}&state=${encodeURIComponent(farmer.state)}`;
+      } else {
         return null;
       }
-      const response = await apiRequest('GET', `/api/weather?lat=${location.latitude}&lon=${location.longitude}`);
+      const response = await apiRequest('GET', url);
       return response.json();
     },
-    enabled: !!location
+    refetchInterval: 15 * 60 * 1000, // Auto refresh every 15 mins
+    staleTime: 10 * 60 * 1000,       // Cache for 10 mins
+    retry: 3,                        // Retry 3 times if fails
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000)
   });
 
   // Auto-fill soil data from district
@@ -134,20 +150,35 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const numericSoilData = {
-      N: parseFloat(soilData.N),
-      P: parseFloat(soilData.P),
-      K: parseFloat(soilData.K),
-      ph: parseFloat(soilData.ph),
-      temperature: parseFloat(soilData.temperature),
-      humidity: parseFloat(soilData.humidity),
-      rainfall: parseFloat(soilData.rainfall)
+    // Parse values as numbers, and ensure valid numbers are sent
+    const parseOrZero = (val: any) => {
+      const parsed = parseFloat(val);
+      return isNaN(parsed) ? 0 : parsed;
     };
+
+    const parsedData = {
+      N: parseOrZero(soilData.N),
+      P: parseOrZero(soilData.P),
+      K: parseOrZero(soilData.K),
+      ph: parseOrZero(soilData.ph),
+      temperature: parseOrZero(soilData.temperature),
+      humidity: parseOrZero(soilData.humidity),
+      rainfall: parseOrZero(soilData.rainfall)
+    };
+
+    // Do not submit if weather data is strictly 0 and not properly loaded
+    if (!parsedData.temperature || !parsedData.humidity) {
+      toast({
+        title: t('toast.error'),
+        description: t('crop.noPrediction'),
+        variant: "destructive",
+      });
+      return;
+    }
 
     predictionMutation.mutate({
       farmerId: farmer.id,
-      soilData: numericSoilData
+      soilData: parsedData
     });
   };
 
@@ -159,7 +190,7 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
   };
 
   return (
-    <div className="grid md:grid-cols-2 gap-4 lg:gap-8">
+    <div className="flex flex-col space-y-6">
       {/* Soil Data Input Form */}
       <Card>
         <CardHeader>
@@ -170,130 +201,8 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
         </CardHeader>
         <CardContent className="p-4 sm:p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Soil Health Card Section */}
-            <div className="p-4 bg-accent/10 rounded-md">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-3 sm:space-y-0 mb-3">
-                <span className="text-sm font-medium" data-testid="shc-question">
-                  {t('crop.shcQuestion')}
-                </span>
-                <div className="flex space-x-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={hasSHC ? "default" : "outline"}
-                    onClick={() => setHasSHC(true)}
-                    data-testid="button-shc-yes"
-                  >
-                    {t('button.yes')}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={!hasSHC ? "default" : "outline"}
-                    onClick={() => setHasSHC(false)}
-                    data-testid="button-shc-no"
-                  >
-                    {t('button.no')}
-                  </Button>
-                </div>
-              </div>
-              
-              {hasSHC ? (
-                <div className="space-y-4">
-                  {/* Main Instructions Card */}
-                  <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg shadow-sm">
-                    <div className="flex items-start space-x-3">
-                      <div className="flex-shrink-0 w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                        <span className="text-green-600 text-sm">📋</span>
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="text-sm font-semibold text-green-800 mb-3" data-testid="shc-instructions-title">
-                          {t('crop.shcInstructionsTitle')}
-                        </h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-green-700" data-testid="shc-instructions">
-                          <div className="space-y-2">
-                            <div className="flex items-center space-x-2">
-                              <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-                              <span>{t('crop.shcInstructionsN')}</span>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-                              <span>{t('crop.shcInstructionsP')}</span>
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <div className="flex items-center space-x-2">
-                              <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-                              <span>{t('crop.shcInstructionsK')}</span>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-                              <span>{t('crop.shcInstructionsPh')}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="mt-3 p-2 bg-green-100 rounded-md">
-                          <p className="text-xs text-green-600">
-                            {t('crop.shcTip')}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Conversion Guide Card */}
-                  <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 rounded-lg shadow-sm">
-                    <div className="flex items-start space-x-3">
-                      <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-blue-600 text-sm">🔄</span>
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="text-sm font-semibold text-blue-800 mb-3" data-testid="shc-conversion-title">
-                          {t('crop.conversionTitle')}
-                        </h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-blue-700" data-testid="shc-conversion">
-                          <div className="space-y-2">
-                            <div className="p-2 bg-blue-100 rounded border-l-4 border-blue-300">
-                              <p>{t('crop.ppm')}</p>
-                            </div>
-                            <div className="p-2 bg-blue-100 rounded border-l-4 border-blue-300">
-                              <p>{t('crop.mgkg')}</p>
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <div className="p-2 bg-blue-100 rounded border-l-4 border-blue-300">
-                              <p>{t('crop.missingPh')}</p>
-                            </div>
-                            <div className="p-2 bg-blue-100 rounded border-l-4 border-blue-300">
-                              <p>{t('crop.phRange')}</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Quick Reference Card */}
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-amber-600">⚡</span>
-                      <p className="text-xs text-amber-700">
-                        {t('crop.quickReference')}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                  <p className="text-xs text-gray-600" data-testid="shc-help">
-                    {t('crop.shcHelp')}
-                  </p>
-                </div>
-              )}
-            </div>
-
             {/* NPK Values */}
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="nitrogen" className="flex items-center space-x-2">
                   <span className="font-medium">{t('crop.nitrogen')}</span>
@@ -432,7 +341,15 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
             </div>
 
             {/* Weather Data */}
-            <div className="p-4 bg-muted/50 rounded-md">
+            <div className="p-4 bg-muted/50 rounded-md relative">
+              {isLoadingWeather && (
+                <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center z-10 rounded-md">
+                  <div className="flex items-center space-x-2 text-primary">
+                    <Cloud className="w-5 h-5 animate-pulse" />
+                    <span className="text-sm font-medium">Fetching weather...</span>
+                  </div>
+                </div>
+              )}
               <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 mb-3">
                 <div className="flex items-center space-x-2">
                   <Cloud className="text-primary w-4 h-4 flex-shrink-0" />
@@ -446,15 +363,31 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
                   size="sm"
                   onClick={() => refetchWeather()}
                   className="text-xs self-start sm:self-center"
+                  disabled={isLoadingWeather}
                   data-testid="button-refresh-weather"
                 >
                   {t('button.refresh')}
                 </Button>
               </div>
               
-              {hasSHC && (
+              {isWeatherError || (weatherData && !weatherData.success) ? (
+                <div className="mb-3 p-2 bg-destructive/10 border border-destructive/20 rounded text-xs text-destructive flex items-center space-x-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>Unable to fetch live weather data. Retrying...</span>
+                </div>
+              ) : hasSHC ? (
                 <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
                   {t('crop.weatherNote')}
+                </div>
+              ) : null}
+              
+              {weatherData && weatherData.success && !isLoadingWeather && (
+                <div className="absolute top-4 right-4 flex items-center space-x-1.5 bg-background/80 backdrop-blur-sm px-2 py-1 rounded-md border text-[10px] text-muted-foreground font-medium">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                  </span>
+                  <span>Updated just now</span>
                 </div>
               )}
               
@@ -462,19 +395,19 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
                 <div>
                   <span className="text-muted-foreground">{t('crop.temperature')}</span>
                   <div className="font-medium" data-testid="weather-temperature">
-                    {formatNumber(soilData.temperature, farmer.language)}{formatUnit('°C', farmer.language)}
+                    {soilData.temperature ? `${formatNumber(Number(soilData.temperature), farmer.language)}${formatUnit('°C', farmer.language)}` : '--'}
                   </div>
                 </div>
                 <div>
                   <span className="text-muted-foreground">{t('crop.humidity')}</span>
                   <div className="font-medium" data-testid="weather-humidity">
-                    {formatNumber(soilData.humidity, farmer.language)}{formatUnit('%', farmer.language)}
+                    {soilData.humidity ? `${formatNumber(Number(soilData.humidity), farmer.language)}${formatUnit('%', farmer.language)}` : '--'}
                   </div>
                 </div>
                 <div>
                   <span className="text-muted-foreground">{t('crop.rainfall')}</span>
                   <div className="font-medium" data-testid="weather-rainfall">
-                    {formatNumber(soilData.rainfall, farmer.language)}{formatUnit('mm', farmer.language)}
+                    {soilData.rainfall ? `${formatNumber(Number(soilData.rainfall), farmer.language)}${formatUnit('mm', farmer.language)}` : '--'}
                   </div>
                 </div>
               </div>
@@ -502,8 +435,8 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
 
             <Button 
               type="submit" 
-              className="w-full"
-              disabled={predictionMutation.isPending}
+              className="w-full h-12 text-lg rounded-xl shadow-sm hover:shadow transition-all font-semibold mt-4"
+              disabled={predictionMutation.isPending || isLoadingWeather || !soilData.temperature}
               data-testid="button-predict-crop"
             >
               <Sparkles className="w-4 h-4 mr-2" />
@@ -513,45 +446,55 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
         </CardContent>
       </Card>
 
+      {/* Loading State */}
+      {predictionMutation.isPending && (
+        <Card className="animate-pulse border-primary/20 bg-primary/5">
+          <CardContent className="p-8 flex flex-col items-center justify-center space-y-4">
+            <div className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
+            <p className="text-primary font-medium">{t('loading.analyzingShort')}...</p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Prediction Results */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Target className="text-primary w-5 h-5 flex-shrink-0" />
-            <span data-testid="results-title">{t('crop.results')}</span>
-            {prediction && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleSpeakResult}
-                className="ml-auto"
-                data-testid="button-speak-result"
-              >
-                <Volume2 className="w-4 h-4" />
-              </Button>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6">
-          {prediction ? (
-            <>
+      {prediction && !predictionMutation.isPending && (
+        <div ref={resultsRef} className="animate-in fade-in slide-in-from-bottom-8 duration-700">
+          <Card className="border-primary/20 shadow-lg bg-gradient-to-br from-background to-primary/5">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Target className="text-primary w-5 h-5 flex-shrink-0" />
+                <span data-testid="results-title">{t('crop.results')}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSpeakResult}
+                  className="ml-auto hover:bg-primary/10 hover:text-primary transition-colors"
+                  data-testid="button-speak-result"
+                >
+                  <Volume2 className="w-4 h-4" />
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6">
               {/* Main Recommendation */}
-              <div className="text-center mb-6">
-                <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-4 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center">
-                  <Wheat className="text-primary-foreground w-10 h-10 sm:w-12 sm:h-12" />
+              <div className="text-center mb-8 relative">
+                <div className="absolute inset-0 bg-primary/10 rounded-full blur-3xl -z-10 w-32 h-32 mx-auto"></div>
+                <div className="w-24 h-24 sm:w-28 sm:h-28 mx-auto mb-5 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center shadow-md transform hover:scale-105 transition-transform">
+                  <Wheat className="text-primary-foreground w-12 h-12 sm:w-14 sm:h-14" />
                 </div>
-                <h3 className="text-xl sm:text-2xl font-bold text-primary mb-2" data-testid="predicted-crop">
+                <div className="text-sm uppercase tracking-widest text-muted-foreground font-semibold mb-1">Top Recommendation</div>
+                <h3 className="text-3xl sm:text-4xl font-extrabold text-primary mb-3 drop-shadow-sm" data-testid="predicted-crop">
                   {localizeCrop(prediction.predicted_crop)}
                 </h3>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-center space-y-1 sm:space-y-0 sm:space-x-2 mb-2">
-                  <span className="text-sm text-muted-foreground">{t('crop.confidence')}:</span>
-                  <span className="font-semibold text-lg" data-testid="confidence-percentage">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-center space-y-1 sm:space-y-0 sm:space-x-3 mb-3">
+                  <span className="text-sm font-medium text-muted-foreground">{t('crop.confidence')}:</span>
+                  <span className="font-bold text-xl bg-primary/10 text-primary px-3 py-1 rounded-full" data-testid="confidence-percentage">
                     {prediction.confidence_percentage.toFixed(1)}%
                   </span>
                 </div>
-                <div className="w-full bg-muted rounded-full h-2">
+                <div className="w-full max-w-md mx-auto bg-muted rounded-full h-2.5 overflow-hidden">
                   <div 
-                    className="bg-primary h-2 rounded-full transition-all duration-500"
+                    className="bg-primary h-2.5 rounded-full transition-all duration-1000 ease-out"
                     style={{ width: `${prediction.confidence_percentage}%` }}
                     data-testid="confidence-bar"
                   />
@@ -559,20 +502,20 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
               </div>
 
               {/* Alternative Crops */}
-              {prediction.top_3_alternatives && prediction.top_3_alternatives.length > 0 && (
-                <div className="mb-6">
-                  <h4 className="text-sm font-medium mb-3" data-testid="alternatives-title">
-                    {t('crop.alternatives')}
+              {prediction.alternatives && prediction.alternatives.length > 1 && (
+                <div className="mb-8">
+                  <h4 className="text-sm uppercase tracking-wider text-muted-foreground font-semibold mb-4" data-testid="alternatives-title">
+                    Top 5 {t('crop.alternatives')}
                   </h4>
-                  <div className="space-y-2">
-                    {prediction.top_3_alternatives.slice(1).map((alt: any, index: number) => (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                    {prediction.alternatives.slice(1).map((alt: any, index: number) => (
                       <div 
                         key={index} 
-                        className="flex items-center justify-between p-2 bg-muted/50 rounded-md"
+                        className="flex flex-col items-center justify-center p-4 bg-card border border-border/50 rounded-xl hover:shadow-md hover:border-primary/30 transition-all group"
                         data-testid={`alternative-${index}`}
                       >
-                        <span className="text-sm">{localizeCrop(alt.crop)}</span>
-                        <span className="text-sm font-medium">
+                        <span className="text-lg font-bold group-hover:text-primary transition-colors text-center mb-1">{localizeCrop(alt.crop)}</span>
+                        <span className="text-sm font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                           {alt.confidence_percentage.toFixed(1)}%
                         </span>
                       </div>
@@ -583,43 +526,45 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
 
               {/* Advisory Tips */}
               {prediction.advisory && prediction.advisory.length > 0 && (
-                <div className="space-y-3">
-                  <h4 className="text-sm font-medium flex items-center space-x-2">
-                    <Lightbulb className="w-4 h-4 text-primary" />
+                <div className="space-y-4">
+                  <h4 className="text-sm uppercase tracking-wider text-muted-foreground font-semibold flex items-center space-x-2 mb-2">
+                    <Lightbulb className="w-4 h-4 text-amber-500" />
                     <span data-testid="advisory-title">{t('crop.advisory')}</span>
                   </h4>
                   
-                  {prediction.advisory.map((tip: any, index: number) => (
-                    <div 
-                      key={index}
-                      className={`p-3 bg-accent/10 rounded-md border-l-4 ${
-                        tip.type === 'irrigation' ? 'border-primary' :
-                        tip.type === 'fertilizer' ? 'border-accent' : 'border-orange-500'
-                      }`}
-                      data-testid={`advisory-${tip.type}`}
-                    >
-                      <div className="flex items-start space-x-2">
-                        {tip.type === 'irrigation' && <Droplets className="w-4 h-4 text-primary mt-0.5" />}
-                        {tip.type === 'fertilizer' && <Beaker className="w-4 h-4 text-accent mt-0.5" />}
-                        {tip.type === 'pest' && <Bug className="w-4 h-4 text-orange-500 mt-0.5" />}
-                        <div>
-                          <h5 className="font-medium text-sm">{t(`advisory.${tip.type}`)}</h5>
-                          <p className="text-xs text-muted-foreground">{getAdvisoryText(tip)}</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {prediction.advisory.map((tip: any, index: number) => (
+                      <div 
+                        key={index}
+                        className={`p-4 bg-card rounded-xl border-t-4 shadow-sm hover:shadow-md transition-shadow ${
+                          tip.type === 'irrigation' ? 'border-t-blue-500' :
+                          tip.type === 'fertilizer' ? 'border-t-green-500' : 'border-t-orange-500'
+                        }`}
+                        data-testid={`advisory-${tip.type}`}
+                      >
+                        <div className="flex items-start space-x-3">
+                          <div className={`p-2 rounded-lg shrink-0 ${
+                            tip.type === 'irrigation' ? 'bg-blue-100 text-blue-600' :
+                            tip.type === 'fertilizer' ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'
+                          }`}>
+                            {tip.type === 'irrigation' && <Droplets className="w-5 h-5" />}
+                            {tip.type === 'fertilizer' && <Beaker className="w-5 h-5" />}
+                            {tip.type === 'pest' && <Bug className="w-5 h-5" />}
+                          </div>
+                          <div>
+                            <h5 className="font-bold text-sm mb-1">{t(`advisory.${tip.type}`)}</h5>
+                            <p className="text-sm text-muted-foreground leading-relaxed">{getAdvisoryText(tip)}</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
-            </>
-          ) : (
-            <div className="text-center py-12 text-muted-foreground" data-testid="no-prediction">
-              <Target className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>{t('crop.noPrediction')}</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

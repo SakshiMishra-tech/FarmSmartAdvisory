@@ -6,9 +6,11 @@ import { Navigation } from '@/components/navigation';
 import { CropRecommendation } from '@/components/crop-recommendation';
 import { YieldPrediction } from '@/components/yield-prediction';
 import { CalamityPrediction } from '@/components/calamity-prediction';
-import { PredictionHistory } from '@/components/prediction-history';
+import { ActivityHistory } from '@/components/activity-history';
 import { SettingsModal } from '@/components/settings-modal';
 import VoiceAssistant from '@/components/voice-assistant';
+import { SoilHealth } from '@/components/soil-health';
+import { SoilHealthPanel } from '@/components/soil-health-panel';
 import { useVoice } from '@/hooks/use-voice';
 import { useOffline } from '@/hooks/use-offline';
 
@@ -21,6 +23,7 @@ export default function Dashboard({ farmer, onLogout }: DashboardProps) {
   const { t, i18n } = useTranslation();
   const { settings: voiceSettings, updateSettings: updateVoiceSettings } = useVoice();
   const { isOnline } = useOffline();
+  const activeFarmer = { ...farmer, language: i18n.language || farmer.language || 'en' };
   const [activeTab, setActiveTab] = useState('crop-recommendation');
   const [showSettings, setShowSettings] = useState(false);
 
@@ -90,40 +93,41 @@ export default function Dashboard({ farmer, onLogout }: DashboardProps) {
 
       {/* Main Content Area */}
       <main className="container mx-auto max-w-6xl px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-2">
-            {activeTab === 'crop-recommendation' && (
-              <CropRecommendation farmer={farmer} />
-            )}
-            {activeTab === 'yield-prediction' && (
-              <YieldPrediction farmer={farmer} />
-            )}
-            {activeTab === 'calamity-prediction' && (
-              <CalamityPrediction farmer={farmer} />
-            )}
-            {activeTab === 'history' && (
-              <PredictionHistory farmer={farmer} onMakePrediction={handleMakePrediction} />
-            )}
-          </div>
-          
-          {/* Voice Assistant Sidebar */}
-          <div className="lg:col-span-1">
-            <VoiceAssistant language={farmer.language || i18n.language || 'en'} onCommand={(command) => {
+        <div className="flex flex-col space-y-6">
+          {activeTab === 'crop-recommendation' && (
+            <CropRecommendation farmer={activeFarmer} />
+          )}
+          {activeTab === 'yield-prediction' && (
+            <YieldPrediction farmer={activeFarmer} />
+          )}
+          {activeTab === 'calamity-prediction' && (
+            <CalamityPrediction farmer={activeFarmer} />
+          )}
+          {activeTab === 'soil-health' && (
+            <SoilHealth farmer={activeFarmer} />
+          )}
+          {activeTab === 'voice-assistant' && (
+            <VoiceAssistant language={activeFarmer.language} farmerId={activeFarmer.id} onCommand={(command) => {
               console.log('Voice command received:', command);
-              // You can add logic here to handle specific voice commands
-              // For example, switch tabs based on voice commands
               if (command.toLowerCase().includes('crop') || command.toLowerCase().includes('recommendation')) {
                 setActiveTab('crop-recommendation');
               } else if (command.toLowerCase().includes('yield') || command.toLowerCase().includes('prediction')) {
                 setActiveTab('yield-prediction');
               } else if (command.toLowerCase().includes('calamity') || command.toLowerCase().includes('disaster') || command.toLowerCase().includes('risk') || command.toLowerCase().includes('weather')) {
                 setActiveTab('calamity-prediction');
+              } else if (command.toLowerCase().includes('soil')) {
+                setActiveTab('soil-health');
               } else if (command.toLowerCase().includes('history') || command.toLowerCase().includes('past')) {
                 setActiveTab('history');
               }
             }} />
-          </div>
+          )}
+          {activeTab === 'history' && (
+            <ActivityHistory 
+              farmer={activeFarmer} 
+              onMakePrediction={() => setActiveTab('crop-recommendation')} 
+            />
+          )}
         </div>
       </main>
 
@@ -133,6 +137,15 @@ export default function Dashboard({ farmer, onLogout }: DashboardProps) {
         onClose={() => setShowSettings(false)}
         farmer={farmer}
         onLogout={handleLogout}
+      />
+      
+      {/* Slide-in Soil Health Panel */}
+      <SoilHealthPanel 
+        onNavigateToSoilHealth={() => setActiveTab('soil-health')}
+        onUseDefaultData={() => {
+          // This relies on the forms using district default when they don't have custom inputs
+          // We don't need to do anything specific here except maybe dispatch an event if needed
+        }}
       />
     </div>
   );

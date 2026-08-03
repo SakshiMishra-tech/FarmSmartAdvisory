@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { useVoice } from '@/hooks/use-voice';
 import { useOffline } from '@/hooks/use-offline';
 import { useToast } from '@/hooks/use-toast';
-import { languages } from '@shared/schema';
+import { languages } from '@shared/schema.ts';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -34,8 +34,8 @@ export function SettingsModal({ isOpen, onClose, farmer, onLogout }: SettingsMod
     localStorage.setItem('farmwise-farmer', JSON.stringify(updatedFarmer));
     
     toast({
-      title: "Language Updated",
-      description: "Language preference has been saved.",
+      title: t('toast.languageUpdated'),
+      description: t('toast.languageSaved'),
     });
   };
 
@@ -44,13 +44,13 @@ export function SettingsModal({ isOpen, onClose, farmer, onLogout }: SettingsMod
     try {
       await clearOfflineData();
       toast({
-        title: "Data Cleared",
-        description: "Offline data has been cleared successfully.",
+        title: t('toast.dataCleared'),
+        description: t('toast.offlineCleared'),
       });
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to clear offline data.",
+        title: t('toast.error'),
+        description: t('toast.clearOfflineFailed'),
         variant: "destructive",
       });
     } finally {
@@ -82,13 +82,13 @@ export function SettingsModal({ isOpen, onClose, farmer, onLogout }: SettingsMod
       URL.revokeObjectURL(url);
 
       toast({
-        title: "Data Exported",
-        description: "Your data has been downloaded successfully.",
+        title: t('toast.dataExported'),
+        description: t('toast.dataDownloaded'),
       });
     } catch (error) {
       toast({
-        title: "Export Failed",
-        description: "Failed to export data.",
+        title: t('toast.exportFailed'),
+        description: t('toast.exportDataFailed'),
         variant: "destructive",
       });
     }
@@ -200,17 +200,17 @@ export function SettingsModal({ isOpen, onClose, farmer, onLogout }: SettingsMod
               data-testid="button-logout"
             >
               <LogOut className="w-4 h-4 mr-3" />
-              <span>Logout</span>
+              <span>{t('settings.logout')}</span>
             </Button>
           </div>
 
           {/* App Info */}
           <div className="pt-4 border-t text-center">
             <p className="text-xs text-muted-foreground" data-testid="app-version">
-              FarmWise v1.0.0
+              {t('settings.version')}
             </p>
             <p className="text-xs text-muted-foreground" data-testid="model-accuracy">
-              ML Model Accuracy: 99.45%
+              {t('settings.modelAccuracy')}
             </p>
           </div>
         </div>

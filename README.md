@@ -2,7 +2,7 @@
 
 FarmAdvisory is a farmer-focused advisory web app for crop recommendation, yield prediction, calamity risk hints, prediction history, and a multilingual voice assistant.
 
-The project combines a React/Vite frontend, a Node/Express API server, local JSON storage, and a separate Python FastAPI voice-assistant service.
+The project combines a React/Vite frontend, a Node/Express API server, local JSON storage, and Express-hosted voice assistant routes.
 
 ## What It Includes
 
@@ -20,7 +20,7 @@ The project combines a React/Vite frontend, a Node/Express API server, local JSO
 - UI: Radix UI, shadcn-style components, lucide-react
 - API: Express with TypeScript
 - Storage: local JSON files in `server/data`
-- Voice backend: FastAPI, Uvicorn, Pydantic
+- Voice backend: Express route handlers with local JSON persistence
 - Optional database tooling: Drizzle ORM
 
 ## Requirements
@@ -42,13 +42,6 @@ npm install --legacy-peer-deps
 
 The `--legacy-peer-deps` flag is currently needed because the project has a Vite peer-dependency conflict.
 
-Install Python backend dependencies:
-
-```bash
-cd backend
-pip install -r requirements.txt
-```
-
 ## Run The Main App
 
 From the project root:
@@ -60,31 +53,10 @@ npm run dev
 Open:
 
 ```text
-http://localhost:5000
+the local URL printed by the server
 ```
 
-The Node server serves both the API and the React app.
-
-## Run The Voice Assistant Backend
-
-In a second terminal:
-
-```bash
-cd backend
-python app.py
-```
-
-Voice backend runs at:
-
-```text
-http://localhost:8002
-```
-
-Health check:
-
-```text
-http://localhost:8002/health
-```
+The Node server serves both the API and the React app, including the voice assistant routes.
 
 ## Useful Commands
 
@@ -103,6 +75,8 @@ Create or update `.env` in the project root:
 
 ```env
 OPENWEATHER_API_KEY=your_openweather_key
+VITE_API_URL=https://your-render-backend.onrender.com
+VITE_VOICE_API_URL=https://your-render-backend.onrender.com
 ```
 
 Weather can fall back to mock/default values if no API key is available.
@@ -120,7 +94,6 @@ The app currently runs with local JSON storage and does not require PostgreSQL f
 ```text
 client/       React frontend
 server/       Express API and local storage
-backend/      Python voice-assistant backend
 shared/       Shared schema and types
 attached_assets/ ML model assets and reference files
 server/data/  Local JSON data storage
@@ -130,7 +103,7 @@ server/data/  Local JSON data storage
 
 - Run npm commands from the project root, not from `client`.
 - The `frontend` folder is not the active app entry.
-- The voice assistant uses `localhost:8002`.
+- The voice assistant uses `VITE_VOICE_API_URL` when the frontend is deployed separately; otherwise it can use the same origin.
 - TypeScript checking currently reports type errors, but the production build succeeds.
 - Before deployment, review and fix npm audit warnings.
 

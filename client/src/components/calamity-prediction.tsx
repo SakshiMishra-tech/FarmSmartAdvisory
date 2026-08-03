@@ -4,12 +4,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertTriangle, CloudRain, Sun, Bug, Shield, AlertCircle } from 'lucide-react';
+import { AlertTriangle, CloudRain, Sun, Bug, Shield, AlertCircle, Thermometer, Droplets, Info, ArrowRight } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 import { useTranslation } from 'react-i18next';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { supportedCrops } from '@shared/schema';
+import { supportedCrops } from '@shared/schema.ts';
 import { formatNumber, getLocalizedCropName } from '@/lib/utils';
 
 interface CalamityPredictionProps {
@@ -260,13 +261,23 @@ export function CalamityPrediction({ farmer }: CalamityPredictionProps) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className={`p-4 rounded-lg border-2 ${getRiskColor(prediction.overall_risk)}`}>
-                <div className="text-center">
-                  <div className="text-3xl font-bold mb-2">
-                    {t(`risk.${prediction.overall_risk}`)}
+              <div className={`p-6 rounded-xl border-2 flex flex-col md:flex-row items-center justify-between ${getRiskColor(prediction.overall_risk)} shadow-sm transition-all`}>
+                <div className="flex items-center space-x-4 mb-4 md:mb-0">
+                  <div className="p-3 bg-white/50 rounded-full backdrop-blur-sm">
+                    <AlertTriangle className="w-8 h-8" />
                   </div>
-                  <div className="text-sm opacity-75">
-                    {t('calamity.riskScore')}: {prediction.risk_score}/3.0
+                  <div>
+                    <h3 className="text-sm font-semibold opacity-80 uppercase tracking-wider">{t('calamity.overallRisk')}</h3>
+                    <div className="text-4xl font-extrabold tracking-tight mt-1">
+                      {t(`risk.${prediction.overall_risk}`)}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-medium opacity-80 mb-2">{t('calamity.riskScore')}</div>
+                  <div className="flex items-center space-x-2">
+                    <Progress value={(prediction.risk_score / 3) * 100} className="w-32 h-2 bg-white/40" />
+                    <span className="font-bold text-lg">{prediction.risk_score}/3.0</span>
                   </div>
                 </div>
               </div>
@@ -279,18 +290,33 @@ export function CalamityPrediction({ farmer }: CalamityPredictionProps) {
               <CardTitle>{t('calamity.currentWeather')}</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div className="p-3 bg-muted/50 rounded-lg">
-                  <div className="text-2xl font-bold">{prediction.weather_conditions.temperature}°C</div>
-                  <div className="text-sm text-muted-foreground">{t('crop.temperature')}</div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex items-center p-4 bg-gradient-to-br from-orange-50 to-red-50 border border-orange-100 rounded-xl">
+                  <div className="p-3 bg-orange-100 text-orange-600 rounded-full mr-4">
+                    <Thermometer className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground font-medium">{t('crop.temperature')}</div>
+                    <div className="text-2xl font-bold text-orange-900">{prediction.weather_conditions.temperature}°C</div>
+                  </div>
                 </div>
-                <div className="p-3 bg-muted/50 rounded-lg">
-                  <div className="text-2xl font-bold">{prediction.weather_conditions.humidity}%</div>
-                  <div className="text-sm text-muted-foreground">{t('crop.humidity')}</div>
+                <div className="flex items-center p-4 bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-100 rounded-xl">
+                  <div className="p-3 bg-blue-100 text-blue-600 rounded-full mr-4">
+                    <Droplets className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground font-medium">{t('crop.humidity')}</div>
+                    <div className="text-2xl font-bold text-blue-900">{prediction.weather_conditions.humidity}%</div>
+                  </div>
                 </div>
-                <div className="p-3 bg-muted/50 rounded-lg">
-                  <div className="text-2xl font-bold">{prediction.weather_conditions.rainfall}mm</div>
-                  <div className="text-sm text-muted-foreground">{t('crop.rainfall')}</div>
+                <div className="flex items-center p-4 bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-100 rounded-xl">
+                  <div className="p-3 bg-indigo-100 text-indigo-600 rounded-full mr-4">
+                    <CloudRain className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground font-medium">{t('crop.rainfall')}</div>
+                    <div className="text-2xl font-bold text-indigo-900">{prediction.weather_conditions.rainfall}mm</div>
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -305,33 +331,60 @@ export function CalamityPrediction({ farmer }: CalamityPredictionProps) {
               <CardContent>
                 <div className="space-y-3">
                   {prediction.calamities.map((calamity: any, index: number) => (
-                    <div key={index} className="p-4 border rounded-lg">
-                      <div className="flex items-center space-x-3 mb-2">
-                        {getCalamityIcon(calamity.type)}
-                        <div>
-                          <h4 className="font-medium">{t(`calamity.${calamity.type}`)}</h4>
-                          <div className={`text-sm px-2 py-1 rounded-full inline-block ${
-                            calamity.severity === 'HIGH' ? 'bg-red-100 text-red-700' :
-                            calamity.severity === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' :
-                            'bg-green-100 text-green-700'
-                          }`}>
-                            {t(`risk.${calamity.severity}`)} ({Math.round(calamity.probability * 100)}%)
+                    <div key={index} className="p-5 border bg-card shadow-sm rounded-xl hover:shadow-md transition-shadow">
+                      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-4">
+                        <div className="flex items-start space-x-3">
+                          <div className="p-2 bg-muted rounded-lg shrink-0">
+                            {getCalamityIcon(calamity.type)}
+                          </div>
+                          <div>
+                            <h4 className="text-lg font-bold">{t(`calamity.${calamity.type}`)}</h4>
+                            <div className="flex items-center mt-1 space-x-2">
+                              <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${
+                                calamity.severity === 'HIGH' ? 'bg-red-100 text-red-700' :
+                                calamity.severity === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-green-100 text-green-700'
+                              }`}>
+                                {t(`risk.${calamity.severity}`)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="md:text-right md:min-w-[120px]">
+                          <div className="text-sm text-muted-foreground mb-1">Probability</div>
+                          <div className="flex items-center space-x-2">
+                            <Progress value={calamity.probability * 100} className="w-20 h-2" />
+                            <span className="font-bold">{Math.round(calamity.probability * 100)}%</span>
                           </div>
                         </div>
                       </div>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        {calamity.description}
-                      </p>
+
+                      <div className="mb-5 bg-muted/30 p-3 rounded-lg border border-muted">
+                        <h5 className="text-sm font-semibold flex items-center space-x-1.5 mb-1.5 text-foreground/80">
+                          <Info className="w-4 h-4 text-primary" />
+                          <span>Why this prediction?</span>
+                        </h5>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          {calamity.description}
+                        </p>
+                      </div>
+
                       <div>
-                        <h5 className="font-medium mb-2">{t('calamity.recommendations')}</h5>
-                        <ul className="text-sm space-y-1">
+                        <h5 className="text-sm font-semibold flex items-center space-x-1.5 mb-3 text-foreground/80">
+                          <AlertTriangle className="w-4 h-4 text-amber-500" />
+                          <span>{t('calamity.recommendations')}</span>
+                        </h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           {calamity.recommendations.map((rec: string, idx: number) => (
-                            <li key={idx} className="flex items-start space-x-2">
-                              <span className="text-primary">•</span>
-                              <span>{rec}</span>
-                            </li>
+                            <div key={idx} className="flex items-start space-x-3 p-3 bg-background border rounded-lg">
+                              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shadow-sm">
+                                {idx + 1}
+                              </span>
+                              <span className="text-sm pt-0.5">{rec}</span>
+                            </div>
                           ))}
-                        </ul>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -346,14 +399,14 @@ export function CalamityPrediction({ farmer }: CalamityPredictionProps) {
               <CardTitle>{t('calamity.preventive')}</CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {prediction.preventive_measures.map((measure: string, index: number) => (
-                  <li key={index} className="flex items-start space-x-2">
-                    <span className="text-primary">•</span>
-                    <span>{measure}</span>
-                  </li>
+                  <div key={index} className="flex items-start space-x-3 p-3 bg-muted/30 border rounded-lg hover:bg-muted/50 transition-colors">
+                    <ArrowRight className="text-primary w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span className="text-sm leading-relaxed">{measure}</span>
+                  </div>
                 ))}
-              </ul>
+              </div>
             </CardContent>
           </Card>
         </div>

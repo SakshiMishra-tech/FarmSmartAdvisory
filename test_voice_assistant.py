@@ -1,17 +1,22 @@
 #!/usr/bin/env python3
 """
-Test script for FarmSmart Voice Assistant Backend
+Test script for the Express-hosted FarmWise voice assistant.
 """
 
+import os
 import requests
 import json
 import time
 
 def test_backend():
     """Test the voice assistant backend"""
-    base_url = "http://localhost:8000"
+    base_url = os.environ.get("VOICE_API_URL") or os.environ.get("API_URL")
+
+    if not base_url:
+        print("❌ Set VOICE_API_URL or API_URL before running this test")
+        return False
     
-    print("🧪 Testing FarmSmart Voice Assistant Backend")
+    print("🧪 Testing FarmWise Voice Assistant Backend")
     print("=" * 50)
     
     # Test 1: Health check
@@ -96,7 +101,7 @@ def test_backend():
 def main():
     """Main test function"""
     print("Starting backend test in 3 seconds...")
-    print("Make sure the backend is running on http://localhost:8000")
+    print(f"Make sure the backend is running at {base_url}")
     time.sleep(3)
     
     if test_backend():

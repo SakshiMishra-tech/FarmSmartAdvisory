@@ -1,8 +1,9 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertFarmerSchema, insertCropPredictionSchema, insertYieldPredictionSchema } from "@shared/schema";
+import { insertFarmerSchema, insertCropPredictionSchema, insertYieldPredictionSchema, insertCalamityPredictionSchema, insertSoilHealthReportSchema, insertWeatherLookupSchema } from "@shared/schema";
 import path from "path";
+import { handleClearConversations, handleGetConversations, handleVoiceQuery } from "./voice-assistant";
 
 // JavaScript ML service inline implementation
 class MLService {
@@ -56,15 +57,15 @@ class MLService {
       cropScores[crop] = this.calculateCropScore(crop, soilData);
     }
 
-    const sortedCrops = Object.entries(cropScores).sort((a, b) => b[1] - a[1]);
-    const top3 = sortedCrops.slice(0, 3);
-    const [predictedCrop, confidence] = top3[0];
+    const sortedCrops = Object.entries(cropScores).sort((a: any, b: any) => b[1] - a[1]);
+    const top6 = sortedCrops.slice(0, 6);
+    const [predictedCrop, confidence] = top6[0];
 
     return {
       predicted_crop: predictedCrop,
       confidence,
-      confidence_percentage: confidence * 100,
-      top_3_alternatives: top3.map(([crop, score]) => ({
+      confidence_percentage: (confidence as number) * 100,
+      alternatives: top6.map(([crop, score]: any) => ({
         crop,
         confidence: score,
         confidence_percentage: score * 100
@@ -396,6 +397,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/voice-query', handleVoiceQuery);
+  app.get('/api/conversations', handleGetConversations);
+  app.delete('/api/conversations', handleClearConversations);
+
+  app.delete('/api/history/:type/:id', async (req, res) => {
+    try {
+      const { type, id } = req.params;
+      const farmerId = req.query.farmerId as string;
+      if (!farmerId) return res.status(400).json({ success: false, error: 'farmerId is required' });
+      await storage.deleteHistoryItem(farmerId, type, id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   // Farmer authentication routes
   app.post('/api/farmers/login', async (req, res) => {
     try {
@@ -476,7 +493,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get weather data
   app.get('/api/weather', async (req, res) => {
     try {
-      const { lat, lon, district, state } = req.query;
+      const { lat, lon, district, state, farmerId } = req.query;
       let latitude = parseFloat(lat as string);
       let longitude = parseFloat(lon as string);
       let locationInfo: any = null;
@@ -496,6 +513,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const weatherData = await getWeatherData(latitude, longitude, locationInfo);
+
+      if (farmerId) {
+        await storage.createWeatherLookup({
+          farmerId: farmerId as string,
+          temperature: weatherData.temperature,
+          humidity: weatherData.humidity,
+          rainfall: weatherData.rainfall,
+          locationName: weatherData.location?.name || 'Unknown'
+        });
+      }
+
       res.json({ success: true, weatherData });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
@@ -526,7 +554,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         crop: mlResult.predicted_crop,
         confidence: mlResult.confidence,
         soilData,
-        alternatives: mlResult.top_3_alternatives || [],
+        alternatives: mlResult.alternatives || [],
         advisory: mlResult.advisory || []
       });
 
@@ -609,13 +637,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw new Error(mlResult.error);
       }
 
+      // Save prediction to storage
+      const predictionData = insertCalamityPredictionSchema.parse({
+        farmerId,
+        crop,
+        overallRisk: mlResult.overall_risk,
+        riskScore: mlResult.risk_score,
+        calamities: mlResult.calamities,
+        weatherConditions: mlResult.weather_conditions
+      });
+
+      const prediction = await storage.createCalamityPrediction(predictionData);
+
       res.json({
         success: true,
         prediction: {
           ...mlResult,
           farmerId,
           crop,
-          createdAt: new Date().toISOString()
+          id: prediction.id,
+          createdAt: prediction.createdAt
         }
       });
     } catch (error: any) {
@@ -624,19 +665,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get farmer's prediction history
-  app.get('/api/farmers/:farmerId/predictions', async (req, res) => {
+  // Save soil health report
+  app.post('/api/soil-health/report', async (req, res) => {
+    try {
+      const { farmerId, n, p, k, ph, status, recommendations } = req.body;
+      
+      const farmer = await storage.getFarmer(farmerId);
+      if (!farmer) {
+        return res.status(404).json({ success: false, error: 'Farmer not found' });
+      }
+
+      const reportData = insertSoilHealthReportSchema.parse({
+        farmerId,
+        n, p, k, ph,
+        status,
+        recommendations
+      });
+
+      const report = await storage.createSoilHealthReport(reportData);
+      res.json({ success: true, report });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Get farmer's unified activity history
+  app.get('/api/farmers/:farmerId/history', async (req, res) => {
     try {
       const { farmerId } = req.params;
       
-      const cropPredictions = await storage.getCropPredictions(farmerId);
-      const yieldPredictions = await storage.getYieldPredictions(farmerId);
-      
+      const [
+        cropPredictions,
+        yieldPredictions,
+        calamityPredictions,
+        voiceConversations,
+        weatherLookups,
+        soilHealthReports
+      ] = await Promise.all([
+        storage.getCropPredictions(farmerId),
+        storage.getYieldPredictions(farmerId),
+        storage.getCalamityPredictions(farmerId),
+        storage.getVoiceConversations(farmerId),
+        storage.getWeatherLookups(farmerId),
+        storage.getSoilHealthReports(farmerId)
+      ]);
+
       res.json({
         success: true,
-        predictions: {
+        history: {
           crops: cropPredictions,
-          yields: yieldPredictions
+          yields: yieldPredictions,
+          calamities: calamityPredictions,
+          voice: voiceConversations,
+          weather: weatherLookups,
+          soil: soilHealthReports
         }
       });
     } catch (error: any) {

@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Leaf } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { languages } from '@shared/schema';
+import { languages } from '@shared/schema.ts';
 
 interface LanguageSelectionProps {
   onLanguageSelect: (language: string) => void;

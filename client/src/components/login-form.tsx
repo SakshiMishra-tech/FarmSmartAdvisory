@@ -72,9 +72,9 @@ export function LoginForm({ onLogin, onBack }: LoginFormProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanPhone = formData.phone.replace(/[\s-]/g, '');
+    const cleanPhone = formData.phone.replace(/\D/g, '');
 
-    if (!/^(?:\+91)?[6-9]\d{9}$/.test(cleanPhone)) {
+    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
       setPhoneError(t('toast.phoneInvalid'));
       toast({
         title: t('toast.validationError'),
@@ -139,20 +139,28 @@ export function LoginForm({ onLogin, onBack }: LoginFormProps) {
                 <Label htmlFor="phone" data-testid="label-phone">
                   {t('login.phone')}
                 </Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+91 9876543210"
-                  value={formData.phone}
-                  onChange={(e) => {
-                    setPhoneError('');
-                    setFormData(prev => ({ ...prev, phone: e.target.value }));
-                  }}
-                  required
-                  data-testid="input-phone"
-                />
+                <div className="flex mt-1.5 rounded-md border border-input bg-transparent shadow-sm focus-within:ring-1 focus-within:ring-ring transition-shadow">
+                  <div className="flex items-center px-3 border-r bg-muted/30 text-muted-foreground sm:text-sm select-none font-medium">
+                    +91 <span className="mx-2 text-border">|</span>
+                  </div>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="9876543210"
+                    className="border-0 focus-visible:ring-0 rounded-l-none shadow-none text-base"
+                    value={formData.phone}
+                    maxLength={10}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      setPhoneError('');
+                      setFormData(prev => ({ ...prev, phone: val }));
+                    }}
+                    required
+                    data-testid="input-phone"
+                  />
+                </div>
                 {phoneError && (
-                  <p className="mt-1 text-xs text-destructive" data-testid="phone-error">
+                  <p className="mt-1.5 text-xs text-destructive font-medium" data-testid="phone-error">
                     {phoneError}
                   </p>
                 )}

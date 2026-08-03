@@ -70,7 +70,7 @@ export function YieldPrediction({ farmer }: YieldPredictionProps) {
   };
 
   return (
-    <div className="grid md:grid-cols-2 gap-6">
+    <div className="flex flex-col space-y-6">
       {/* Yield Prediction Form */}
       <Card>
         <CardHeader>
@@ -81,7 +81,8 @@ export function YieldPrediction({ farmer }: YieldPredictionProps) {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
               <Label htmlFor="crop">{t('yield.crop')}</Label>
               <Select
                 value={yieldData.crop}
@@ -146,13 +147,14 @@ export function YieldPrediction({ farmer }: YieldPredictionProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {[2024, 2023, 2022].map((year) => (
+                  {Array.from({ length: new Date().getFullYear() - 2020 + 1 }, (_, i) => new Date().getFullYear() - i).map((year) => (
                     <SelectItem key={year} value={year.toString()}>
                       {year}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+            </div>
             </div>
 
             <Button 

@@ -1,6 +1,83 @@
 import { z } from "zod";
+import { pgTable, text, timestamp, integer, real, json, uuid } from "drizzle-orm/pg-core";
 
-// Farmer schema
+export const farmers = pgTable("farmers", {
+  id: uuid("id").primaryKey(),
+  name: text("name").notNull(),
+  phone: text("phone").notNull().unique(),
+  email: text("email"),
+  state: text("state").notNull(),
+  district: text("district").notNull(),
+  language: text("language").default("en").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const cropPredictions = pgTable("crop_predictions", {
+  id: uuid("id").primaryKey(),
+  farmerId: uuid("farmer_id").references(() => farmers.id).notNull(),
+  crop: text("crop").notNull(),
+  confidence: real("confidence").notNull(),
+  soilData: json("soil_data").notNull(),
+  alternatives: json("alternatives").notNull(),
+  advisory: json("advisory").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const yieldPredictions = pgTable("yield_predictions", {
+  id: uuid("id").primaryKey(),
+  farmerId: uuid("farmer_id").references(() => farmers.id).notNull(),
+  crop: text("crop").notNull(),
+  season: text("season").notNull(),
+  area: real("area").notNull(),
+  year: integer("year").notNull(),
+  predictedProduction: real("predicted_production").notNull(),
+  predictedYield: real("predicted_yield").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const voiceConversations = pgTable("voice_conversations", {
+  id: uuid("id").primaryKey(),
+  farmerId: uuid("farmer_id").references(() => farmers.id).notNull(),
+  query: text("query").notNull(),
+  response: text("response").notNull(),
+  language: text("language").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const calamityPredictions = pgTable("calamity_predictions", {
+  id: uuid("id").primaryKey(),
+  farmerId: uuid("farmer_id").references(() => farmers.id).notNull(),
+  crop: text("crop").notNull(),
+  overallRisk: text("overall_risk").notNull(),
+  riskScore: real("risk_score").notNull(),
+  calamities: json("calamities").notNull(),
+  weatherConditions: json("weather_conditions").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const soilHealthReports = pgTable("soil_health_reports", {
+  id: uuid("id").primaryKey(),
+  farmerId: uuid("farmer_id").references(() => farmers.id).notNull(),
+  n: real("n").notNull(),
+  p: real("p").notNull(),
+  k: real("k").notNull(),
+  ph: real("ph").notNull(),
+  status: text("status").notNull(),
+  recommendations: json("recommendations").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const weatherLookups = pgTable("weather_lookups", {
+  id: uuid("id").primaryKey(),
+  farmerId: uuid("farmer_id").references(() => farmers.id).notNull(),
+  temperature: real("temperature").notNull(),
+  humidity: real("humidity").notNull(),
+  rainfall: real("rainfall").notNull(),
+  locationName: text("location_name").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const farmerSchema = z.object({
   id: z.string(),
   name: z.string().min(1, "Name is required"),
@@ -15,7 +92,6 @@ export const farmerSchema = z.object({
 
 export const insertFarmerSchema = farmerSchema.omit({ id: true, createdAt: true, updatedAt: true });
 
-// State and District data
 export const stateDistrictData = {
   "maharashtra": ["mumbai", "pune", "nagpur", "nashik", "aurangabad", "solapur", "thane", "kolhapur", "sangli", "satara"],
   "punjab": ["ludhiana", "amritsar", "jalandhar", "patiala", "bathinda", "mohali", "hoshiarpur", "kapurthala", "faridkot", "firozpur"],
@@ -40,12 +116,11 @@ export const getDistrictsByState = (state: string): string[] => {
 };
 
 export const getStates = (): string[] => {
-  return Object.keys(stateDistrictData).map(state => 
+  return Object.keys(stateDistrictData).map(state =>
     state.charAt(0).toUpperCase() + state.slice(1)
   );
 };
 
-// Soil data schema
 export const soilDataSchema = z.object({
   id: z.string(),
   district: z.string(),
@@ -60,7 +135,6 @@ export const soilDataSchema = z.object({
 
 export type SoilData = z.infer<typeof soilDataSchema>;
 
-// Crop prediction schema
 export const cropPredictionSchema = z.object({
   id: z.string(),
   farmerId: z.string(),
@@ -84,7 +158,6 @@ export const insertCropPredictionSchema = cropPredictionSchema.omit({ id: true, 
 export type CropPrediction = z.infer<typeof cropPredictionSchema>;
 export type InsertCropPrediction = z.infer<typeof insertCropPredictionSchema>;
 
-// Yield prediction schema
 export const yieldPredictionSchema = z.object({
   id: z.string(),
   farmerId: z.string(),
@@ -102,7 +175,6 @@ export const insertYieldPredictionSchema = yieldPredictionSchema.omit({ id: true
 export type YieldPrediction = z.infer<typeof yieldPredictionSchema>;
 export type InsertYieldPrediction = z.infer<typeof insertYieldPredictionSchema>;
 
-// Weather data schema
 export const weatherDataSchema = z.object({
   temperature: z.number(),
   humidity: z.number(),
@@ -113,14 +185,68 @@ export const weatherDataSchema = z.object({
 
 export type WeatherData = z.infer<typeof weatherDataSchema>;
 
-// Language options
+export const calamityPredictionSchema = z.object({
+  id: z.string(),
+  farmerId: z.string(),
+  crop: z.string(),
+  overallRisk: z.string(),
+  riskScore: z.number(),
+  calamities: z.any(), // Storing the JSON array of calamities
+  weatherConditions: z.any(), // Storing the JSON of weather conditions
+  createdAt: z.date().default(() => new Date())
+});
+export const insertCalamityPredictionSchema = calamityPredictionSchema.omit({ id: true, createdAt: true });
+export type CalamityPrediction = z.infer<typeof calamityPredictionSchema>;
+export type InsertCalamityPrediction = z.infer<typeof insertCalamityPredictionSchema>;
+
+export const soilHealthReportSchema = z.object({
+  id: z.string(),
+  farmerId: z.string(),
+  n: z.number(),
+  p: z.number(),
+  k: z.number(),
+  ph: z.number(),
+  status: z.string(), // e.g., 'Healthy', 'Deficient'
+  recommendations: z.any(), // Array of recommendations
+  createdAt: z.date().default(() => new Date())
+});
+export const insertSoilHealthReportSchema = soilHealthReportSchema.omit({ id: true, createdAt: true });
+export type SoilHealthReport = z.infer<typeof soilHealthReportSchema>;
+export type InsertSoilHealthReport = z.infer<typeof insertSoilHealthReportSchema>;
+
+export const weatherLookupSchema = z.object({
+  id: z.string(),
+  farmerId: z.string(),
+  temperature: z.number(),
+  humidity: z.number(),
+  rainfall: z.number(),
+  locationName: z.string(),
+  createdAt: z.date().default(() => new Date())
+});
+export const insertWeatherLookupSchema = weatherLookupSchema.omit({ id: true, createdAt: true });
+export type WeatherLookup = z.infer<typeof weatherLookupSchema>;
+export type InsertWeatherLookup = z.infer<typeof insertWeatherLookupSchema>;
+
+export const voiceConversationsSchema = z.object({
+  id: z.string(),
+  farmerId: z.string(),
+  query: z.string(),
+  response: z.string(),
+  language: z.string(),
+  createdAt: z.date().default(() => new Date())
+});
+
+export const insertVoiceConversationSchema = voiceConversationsSchema.omit({ id: true, createdAt: true });
+
+export type VoiceConversation = z.infer<typeof voiceConversationsSchema>;
+export type InsertVoiceConversation = z.infer<typeof insertVoiceConversationSchema>;
+
 export const languages = [
   { code: "en", name: "English", native: "English" },
   { code: "hi", name: "Hindi", native: "हिन्दी" },
   { code: "od", name: "Odia", native: "ଓଡ଼ିଆ" }
 ];
 
-// Supported crops (from ML model)
 export const supportedCrops = [
   "rice", "maize", "chickpea", "kidneybeans", "pigeonpeas", "mothbeans",
   "mungbean", "blackgram", "lentil", "pomegranate", "banana", "mango",

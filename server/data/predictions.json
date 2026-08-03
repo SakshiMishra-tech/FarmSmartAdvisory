@@ -393,6 +393,17 @@
       "predictedYield": 2.25,
       "id": "2e1ab5bb-8339-4ef6-87f9-27b3d4b45743",
       "createdAt": "2026-08-01T22:39:05.303Z"
+    },
+    {
+      "farmerId": "0d92da37-b3a8-43c6-94c0-576e3d926ff4",
+      "crop": "maize",
+      "season": "Rabi",
+      "area": 65,
+      "year": 2023,
+      "predictedProduction": 247,
+      "predictedYield": 3.8,
+      "id": "e11e9e50-2d6c-459e-ad73-7f40820d49e3",
+      "createdAt": "2026-08-03T06:47:28.047Z"
     }
   ]
 }

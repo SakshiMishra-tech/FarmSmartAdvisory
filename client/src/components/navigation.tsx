@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Target, TrendingUp, Clock, Settings, AlertTriangle } from 'lucide-react';
+import { Target, TrendingUp, Clock, Settings, AlertTriangle, Sprout, Mic } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 interface NavigationProps {
@@ -15,6 +15,8 @@ export function Navigation({ activeTab, onTabChange, onOpenSettings }: Navigatio
     { id: 'crop-recommendation', label: t('nav.recommendation'), icon: Target },
     { id: 'yield-prediction', label: t('nav.yield'), icon: TrendingUp },
     { id: 'calamity-prediction', label: t('nav.calamity'), icon: AlertTriangle },
+    { id: 'soil-health', label: 'Soil Health', icon: Sprout },
+    { id: 'voice-assistant', label: 'Voice Assistant', icon: Mic },
     { id: 'history', label: t('nav.history'), icon: Clock }
   ];
 
