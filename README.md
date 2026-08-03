@@ -1,109 +1,146 @@
-# FarmAdvisory
+# 🌾 FarmWise — Smart Crop Advisory
 
-FarmAdvisory is a farmer-focused advisory web app for crop recommendation, yield prediction, calamity risk hints, prediction history, and a multilingual voice assistant.
+A multilingual, AI-powered farming advisory Progressive Web App (PWA) built for Indian farmers. Supports **Hindi**, **English**, and **Odia**.
 
-The project combines a React/Vite frontend, a Node/Express API server, local JSON storage, and Express-hosted voice assistant routes.
+![Dashboard](docs/images/dashboard.png)
 
-## What It Includes
+---
 
-- Crop recommendation based on soil and weather inputs
-- Yield prediction for supported crops and seasons
-- Calamity risk guidance for drought, flood, heat stress, pest risk, and erosion
-- Farmer login/profile flow
-- Prediction history stored locally in JSON files
-- Multilingual interface and voice assistant support
-- PWA assets through `manifest.json` and service worker
+## ✨ Features
 
-## Tech Stack
+- 🌱 **Crop Recommendation** — AI-powered suggestions based on soil (N, P, K, pH) and live weather data
+- 📊 **Yield Prediction** — Predict crop production using ML models (Decision Tree)
+- ⚠️ **Calamity Risk** — Drought, flood, heat stress, pest, and erosion risk analysis
+- 📜 **History** — Full prediction history with export to PDF
+- 🎙️ **Hindi Voice Assistant** — Chat or speak in Hindi; AI answers in pure Hindi steps
+- 🛰️ **Live Location** — Auto-detect GPS location for weather & soil data
+- 📱 **PWA** — Install on phone, works offline for cached features
+- 🔐 **Secure Login** — Phone-based login, profile saved to PostgreSQL (Supabase)
+- 🌙 **Dark/Light Mode** — Theme switcher
+- 🌐 **i18n** — Full translations: Hindi, English, Odia
 
-- Frontend: React, Vite, TypeScript, Tailwind CSS
-- UI: Radix UI, shadcn-style components, lucide-react
-- API: Express with TypeScript
-- Storage: local JSON files in `server/data`
-- Voice backend: Express route handlers with local JSON persistence
-- Optional database tooling: Drizzle ORM
+---
 
-## Requirements
+## 🎙️ Voice Assistant (AI — Hindi)
 
-Install these before running the project:
+![Voice Assistant](docs/images/voice-assistant.png)
 
-- Node.js 18 or newer
-- npm
-- Python 3.8 or newer
-- Modern browser with microphone permission for voice features
+Chat or speak your question in Hindi. The AI responds in pure Hindi with numbered steps.
 
-## Setup
+---
 
-Run Node setup from the project root:
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, Vite, TypeScript, Tailwind CSS |
+| UI Components | Radix UI, shadcn-style, Lucide React |
+| API | Node.js + Express (TypeScript) |
+| Database | PostgreSQL via Supabase (Drizzle ORM) |
+| AI / Voice | Google Gemini AI (`@google/genai`) |
+| ML Models | Random Forest (Crop), Decision Tree (Yield) — Python |
+| i18n | i18next, react-i18next |
+| PWA | Vite PWA plugin, manifest.json |
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- **Node.js** 18+
+- **npm**
+- **Python** 3.8+ (for ML model service)
+- A modern browser (Chrome/Firefox) with microphone permissions for voice features
+
+### 1. Clone & Install
 
 ```bash
+git clone https://github.com/SakshiMishra-tech/FarmSmartAdvisory-.git
+cd FarmSmartAdvisory-
 npm install --legacy-peer-deps
 ```
 
-The `--legacy-peer-deps` flag is currently needed because the project has a Vite peer-dependency conflict.
+### 2. Configure Environment
 
-## Run The Main App
-
-From the project root:
-
-```bash
-npm run dev
-```
-
-Open:
-
-```text
-the local URL printed by the server
-```
-
-The Node server serves both the API and the React app, including the voice assistant routes.
-
-## Useful Commands
-
-```bash
-npm run dev
-npm run build
-npm run start
-npm run check
-```
-
-`npm run build` creates the production output in `dist`.
-
-## Environment Variables
-
-Create or update `.env` in the project root:
+Create a `.env` file in the project root:
 
 ```env
-OPENWEATHER_API_KEY=your_openweather_key
-VITE_API_URL=https://your-render-backend.onrender.com
-VITE_VOICE_API_URL=https://your-render-backend.onrender.com
+DATABASE_URL=your_supabase_postgresql_connection_string
+GEMINI_API_KEY=your_google_gemini_api_key
+OPENWEATHER_API_KEY=your_openweathermap_api_key
 ```
 
-Weather can fall back to mock/default values if no API key is available.
+> 💡 Weather falls back to regional seasonal averages if no API key is provided.
 
-`DATABASE_URL` is only required if you use Drizzle database commands such as:
+### 3. Push Database Schema
 
 ```bash
 npm run db:push
 ```
 
-The app currently runs with local JSON storage and does not require PostgreSQL for normal local usage.
+### 4. Run the App
 
-## Project Structure
-
-```text
-client/       React frontend
-server/       Express API and local storage
-shared/       Shared schema and types
-attached_assets/ ML model assets and reference files
-server/data/  Local JSON data storage
+```bash
+npm run dev
 ```
 
-## Notes
+Open the URL printed in the terminal (usually `http://localhost:5000`).
 
-- Run npm commands from the project root, not from `client`.
-- The `frontend` folder is not the active app entry.
-- The voice assistant uses `VITE_VOICE_API_URL` when the frontend is deployed separately; otherwise it can use the same origin.
-- TypeScript checking currently reports type errors, but the production build succeeds.
-- Before deployment, review and fix npm audit warnings.
+---
 
+## 📁 Project Structure
+
+```
+client/          React frontend (Vite + TypeScript)
+  src/
+    components/  UI components (crop, yield, voice, settings, etc.)
+    pages/       Dashboard, Login pages
+    lib/         i18n, transliteration, supabase, utils
+server/          Express API server
+  routes.ts      All API endpoints
+  storage.ts     Database layer (Drizzle ORM)
+  voice-assistant.ts  Gemini AI integration
+  ml_service.py  Python ML inference service
+shared/          Shared TypeScript schema (Drizzle + Zod)
+docs/images/     README screenshots
+```
+
+---
+
+## 🧰 Useful Commands
+
+```bash
+npm run dev        # Start development server
+npm run build      # Build for production
+npm run start      # Run production build
+npm run check      # TypeScript type check
+npm run db:push    # Push schema changes to database
+```
+
+---
+
+## 📸 Adding Your Own Screenshots
+
+To replace the placeholder images in this README with real app screenshots:
+
+1. Take a screenshot of your running app
+2. Save them as:
+   - `docs/images/dashboard.png` — Dashboard / Crop Recommendation page
+   - `docs/images/voice-assistant.png` — Voice Assistant chat page
+3. Commit and push:
+   ```bash
+   git add docs/images/
+   git commit -m "Add real app screenshots to README"
+   git push
+   ```
+
+---
+
+## 📜 License
+
+MIT License — Free to use and modify.
+
+---
+
+> Made with ❤️ for Indian Farmers 🇮🇳
