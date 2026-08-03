@@ -67,7 +67,7 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
   });
 
   // Fetch weather data with retry disabled so UI never hangs
-  const { data: weatherData, refetch: refetchWeather, isLoading: isLoadingWeather, isFetching: isFetchingWeather } = useQuery({
+  const { data: weatherData, refetch: refetchWeather, isLoading: isLoadingWeather, isFetching: isFetchingWeather, isError: isWeatherError } = useQuery({
     queryKey: ['/api/weather', location?.latitude, location?.longitude, farmer.district],
     queryFn: async () => {
       let url = `/api/weather?farmerId=${farmer.id}`;
