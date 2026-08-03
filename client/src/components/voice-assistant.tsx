@@ -3,10 +3,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Mic, MicOff, Volume2, VolumeX, Trash2, RotateCcw } from 'lucide-react';
+import { Mic, MicOff, Volume2, VolumeX, Trash2, MessageSquarePlus, Sparkles, User, Bot, Send } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { transliterateInput } from '@/lib/transliteration';
 import { buildVoiceApiUrl } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 
 interface VoiceAssistantProps {
   onCommand?: (command: string) => void;
@@ -14,37 +15,72 @@ interface VoiceAssistantProps {
   farmerId: string;
 }
 
-interface Conversation {
+interface ChatMessage {
   id: string;
+  role: 'user' | 'assistant';
+  text: string;
   timestamp: Date;
-  question: string;
-  answer: string;
-  language: string;
+  language?: string;
 }
 
-const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand, language: appLanguage, farmerId }) => {
+export function cleanStepFormatting(text: string, language?: string): string {
+  if (!text) return text;
+  if (language === 'hi' || language === 'Hindi') {
+    return text
+      .replace(/\bStep\s*1\b:?/gi, 'पहला चरण:')
+      .replace(/\bStep\s*2\b:?/gi, 'दूसरा चरण:')
+      .replace(/\bStep\s*3\b:?/gi, 'तीसरा चरण:')
+      .replace(/\bStep\s*4\b:?/gi, 'चौथा चरण:')
+      .replace(/\bStep\s*5\b:?/gi, 'पांचवां चरण:')
+      .replace(/\bStep\s*6\b:?/gi, 'छठा चरण:')
+      .replace(/\bStep\s*7\b:?/gi, 'सातवां चरण:')
+      .replace(/\bStep\s*8\b:?/gi, 'आठवां चरण:')
+      .replace(/\bStep\s*9\b:?/gi, 'नौवां चरण:')
+      .replace(/\bStep\s*10\b:?/gi, 'दसवां चरण:')
+      .replace(/\bStep\s*(\d+)\b:?/gi, 'चरण $1:');
+  }
+  if (language === 'od' || language === 'or' || language === 'Odia') {
+    return text
+      .replace(/\bStep\s*1\b:?/gi, 'ପ୍ରଥମ ଚରଣ:')
+      .replace(/\bStep\s*2\b:?/gi, 'ଦ୍ୱିତୀୟ ଚରଣ:')
+      .replace(/\bStep\s*3\b:?/gi, 'ତୃତୀୟ ଚରଣ:')
+      .replace(/\bStep\s*(\d+)\b:?/gi, 'ଚରଣ $1:');
+  }
+  return text;
+}
+
+export function VoiceAssistant({ language: appLanguage, farmerId }: VoiceAssistantProps) {
   const { t } = useTranslation();
-  const [isListening, setIsListening] = useState(false);
-  const [transcript, setTranscript] = useState('');
-  const [response, setResponse] = useState('');
-  const [currentLanguage, setCurrentLanguage] = useState('en');
+  const { toast } = useToast();
+  
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [typedQuery, setTypedQuery] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [inputError, setInputError] = useState('');
+  const [isListening, setIsListening] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [conversationHistory, setConversationHistory] = useState<Conversation[]>([]);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [currentLanguage, setCurrentLanguage] = useState('en');
+
+  const chatBottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const speechSynthesisRef = useRef<SpeechSynthesisUtterance | null>(null);
+
   const selectedLanguage = appLanguage || localStorage.getItem('farmwise-language') || 'en';
   const backendLanguage = selectedLanguage === 'od' ? 'or' : selectedLanguage;
-  const speechLangMap: { [key: string]: string } = {
+
+  const speechLangMap: Record<string, string> = {
     en: 'en-US',
     hi: 'hi-IN',
     od: 'or-IN',
     or: 'or-IN'
   };
 
-  // Load conversation history from backend on component mount
+  // Scroll to bottom when messages update
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isGenerating]);
+
+  // Load past conversation history on mount into thread
   useEffect(() => {
     const loadHistory = async () => {
       if (!farmerId) return;
@@ -54,137 +90,97 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand, language: ap
           const contentType = response.headers.get('content-type');
           if (contentType && contentType.includes('application/json')) {
             const data = await response.json();
-            const backendHistory = data.conversations.map((item: any) => ({
-              ...item,
-              timestamp: new Date(item.createdAt || item.timestamp)
-            }));
+            const thread: ChatMessage[] = [];
             
-            setConversationHistory(backendHistory);
-          } else {
-            console.warn('Backend returned non-JSON response for history. Likely a configuration issue.');
+            data.conversations.forEach((item: any) => {
+              const ts = new Date(item.createdAt || item.timestamp || Date.now());
+              thread.push({
+                id: `q_${item.id}`,
+                role: 'user',
+                text: item.question || item.query,
+                timestamp: ts,
+                language: item.language
+              });
+              thread.push({
+                id: `a_${item.id}`,
+                role: 'assistant',
+                text: item.answer || item.response,
+                timestamp: ts,
+                language: item.language
+              });
+            });
+
+            if (thread.length > 0) {
+              setMessages(thread);
+            }
           }
         }
       } catch (error) {
-        console.log('Backend conversation history not available:', error);
+        console.log('Backend conversation history error:', error);
       }
     };
 
     loadHistory();
   }, [farmerId]);
 
-  // Add conversation to history
-  const addToHistory = (question: string, answer: string, language: string) => {
-    const newEntry = {
-      id: Date.now().toString(),
-      timestamp: new Date(),
-      question,
-      answer,
-      language
-    };
-    setConversationHistory(prev => [...prev, newEntry]);
-  };
+  // Speech Recognition Setup
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = speechLangMap[backendLanguage] || 'en-US';
 
-  // Clear conversation history
-  const clearHistory = async () => {
-    setConversationHistory([]);
-    
-    // Clear backend history
-    try {
-      await fetch(buildVoiceApiUrl(`/api/conversations?farmerId=${farmerId}`), {
-        method: 'DELETE'
-      });
-    } catch (error) {
-      console.log('Could not clear backend history:', error);
+      recognitionRef.current.onresult = async (event: any) => {
+        const spokenText = event.results?.[0]?.[0]?.transcript;
+        if (spokenText) {
+          handleSendQuery(spokenText);
+        }
+      };
+
+      recognitionRef.current.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        setIsListening(false);
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+      };
+    }
+  }, [backendLanguage]);
+
+  const toggleListening = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+    } else {
+      stopSpeaking();
+      try {
+        recognitionRef.current?.start();
+        setIsListening(true);
+      } catch (e) {
+        console.error(e);
+      }
     }
   };
 
-  const [isGenerating, setIsGenerating] = useState(false);
-
-  const handleTypedQuery = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const query = typedQuery.trim();
-    if (!query) return;
-
-    try {
-      setTranscript(query);
-      setResponse('');
-      setError(null);
-      setIsGenerating(true);
-
-      const res = await fetch(buildVoiceApiUrl('/api/voice-query'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query,
-          language: backendLanguage,
-          farmerId
-        }),
-      });
-
-      if (!res.ok) {
-        throw new Error(`Server returned ${res.status}`);
-      }
-
-      const contentType = res.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('Server returned an invalid response (not JSON). Please check your API configuration.');
-      }
-
-      const data = await res.json();
-      const language = backendLanguage || data.language || 'en';
-      setResponse(data.response);
-      setCurrentLanguage(language);
-      addToHistory(query, data.response, language);
-      setTypedQuery('');
-
-      speakText(data.response, speechLangMap[language] || 'en-US');
-
-      if (onCommand) {
-        onCommand(query);
-      }
-    } catch (error) {
-      console.error('Error sending typed query:', error);
-      setError(error instanceof Error ? error.message : 'Connection error. Please try again.');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  // Text-to-speech function
-  const speakText = (text: string, language: string = 'en-US') => {
+  const speakText = (text: string, langCode: string = 'en-US') => {
     if ('speechSynthesis' in window) {
-      // Stop any ongoing speech
       window.speechSynthesis.cancel();
-      
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = language;
-      utterance.rate = 0.9; // Slightly slower for better understanding
-      utterance.pitch = 1.0;
-      utterance.volume = 1.0;
+      utterance.lang = langCode;
+      utterance.rate = 0.95;
       
-      utterance.onstart = () => {
-        setIsSpeaking(true);
-      };
-      
-      utterance.onend = () => {
-        setIsSpeaking(false);
-      };
-      
-      utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event);
-        setIsSpeaking(false);
-      };
-      
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+
       speechSynthesisRef.current = utterance;
       window.speechSynthesis.speak(utterance);
-    } else {
-      console.warn('Speech synthesis not supported in this browser');
     }
   };
 
-  // Stop speaking function
   const stopSpeaking = () => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
@@ -192,145 +188,173 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand, language: ap
     }
   };
 
-  useEffect(() => {
-    // Initialize voice recognition
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = speechLangMap[backendLanguage] || 'en-US';
-
-      recognitionRef.current.onresult = async (event: any) => {
-        let finalTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          }
-        }
-        
-        if (finalTranscript) {
-          setTranscript(finalTranscript);
-          setResponse(''); // Clear previous response
-          setIsGenerating(true);
-          
-          try {
-            const res = await fetch(buildVoiceApiUrl('/api/voice-query'), {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ 
-                query: finalTranscript,
-                language: backendLanguage,
-                farmerId
-              }),
-            });
-
-            if (!res.ok) {
-              console.error(`HTTP error! status: ${res.status}`);
-              throw new Error(`Server returned ${res.status}`);
-            }
-
-            const contentType = res.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-              throw new Error('Server returned an invalid response. API configuration might be wrong.');
-            }
-
-            const data = await res.json();
-            setResponse(data.response);
-            setCurrentLanguage(backendLanguage);
-            setError(null);
-            
-            // Add to conversation history
-            addToHistory(finalTranscript, data.response, backendLanguage);
-            
-            // Automatically speak the response
-            const speechLang = speechLangMap[backendLanguage] || 'en-US';
-            speakText(data.response, speechLang);
-            
-            // Call onCommand if provided
-            if (onCommand) {
-              onCommand(finalTranscript);
-            }
-            
-          } catch (error) {
-            console.error('Error in voice recognition:', error);
-            setError(error instanceof Error ? error.message : 'Connection error. Please try again.');
-            setResponse('');
-          } finally {
-            setIsGenerating(false);
-          }
-        }
-      };
-
-      recognitionRef.current.onerror = (event: any) => {
-        console.error('Speech recognition error:', event.error);
-        setError(`Speech recognition error: ${event.error}`);
-        setIsListening(false);
-      };
-
-      recognitionRef.current.onend = () => {
-        setIsListening(false);
-      };
-    } else {
-      setError('Speech recognition not supported in this browser');
+  const handleSendQuery = async (queryText: string) => {
+    const query = queryText.trim();
+    if (!query) {
+      setInputError("Please enter a question.");
+      toast({
+        title: "Validation Error",
+        description: "Please complete all required fields.",
+        variant: "destructive"
+      });
+      return;
     }
 
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-    };
-  }, [onCommand, backendLanguage]);
+    setInputError('');
+    setTypedQuery('');
 
-  const toggleListening = () => {
-    if (isListening) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    } else {
-      setError(null);
-      setTranscript('');
-      setResponse('');
-      // Stop any ongoing speech when starting to listen
-      stopSpeaking();
-      recognitionRef.current.start();
-      setIsListening(true);
+    // Append User Message to Thread
+    const userMsg: ChatMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      text: query,
+      timestamp: new Date(),
+      language: backendLanguage
+    };
+    
+    setMessages(prev => [...prev, userMsg]);
+    setIsGenerating(true);
+
+    try {
+      const res = await fetch(buildVoiceApiUrl('/api/voice-query'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query,
+          language: backendLanguage,
+          farmerId
+        }),
+      });
+
+      if (!res.ok) throw new Error("Voice assistant server error");
+      
+      const data = await res.json();
+      const responseText = data.response || "I am here to assist with your crops and farming queries.";
+      
+      const assistantMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        text: responseText,
+        timestamp: new Date(),
+        language: backendLanguage
+      };
+
+      setMessages(prev => [...prev, assistantMsg]);
+      setCurrentLanguage(backendLanguage);
+      
+      toast({
+        title: "✅ Voice response generated.",
+        description: "AI Advisor has answered your question."
+      });
+
+      speakText(responseText, speechLangMap[backendLanguage] || 'en-US');
+    } catch (error) {
+      console.error('Error generating response:', error);
+      toast({
+        title: "Connection Error",
+        description: "We couldn't generate a voice response. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGenerating(false);
     }
   };
 
-  const getLanguageFlag = (lang: string) => {
-    const flags: { [key: string]: string } = {
-      'en': '🇺🇸',
-      'hi': '🇮🇳',
-      'or': '🇮🇳',
-      'od': '🇮🇳'
-    };
-    return flags[lang] || '🌐';
+  const handleNewChat = () => {
+    setMessages([]);
+    stopSpeaking();
+    toast({
+      title: "New Chat Started",
+      description: "Started a fresh conversation thread."
+    });
   };
+
+  const handleClearHistory = async () => {
+    setMessages([]);
+    stopSpeaking();
+    try {
+      await fetch(buildVoiceApiUrl(`/api/conversations?farmerId=${farmerId}`), {
+        method: 'DELETE'
+      });
+    } catch (e) {
+      console.error("Failed to clear conversations backend", e);
+    }
+    toast({
+      title: "History Cleared",
+      description: "Voice conversation history removed."
+    });
+  };
+
+  const uiTexts = {
+    hi: {
+      title: "फार्मवाइज़ AI वॉयस सलाहकार",
+      newChat: "नया चैट",
+      replayAudio: "पुनः सुनें",
+      thinking: "फार्मवाइज़ AI उत्तर तैयार कर रहा है...",
+      speakQuery: "बोलकर पूछें",
+      stopInput: "बोलना बंद करें",
+      stopAudio: "आवाज़ बंद करें",
+      placeholder: "अपनी खेती से जुड़ा सवाल यहाँ पूछें...",
+      send: "भेजें",
+      talking: "सोच रहा है...",
+      mode: "HINDI MODE"
+    },
+    or: {
+      title: "ଫାର୍ମୱାଇଜ୍ AI ଭଏସ୍ ପରାମର୍ଶଦାତା",
+      newChat: "ନୂତନ ଚାଟ୍",
+      replayAudio: "ପୁନର୍ବାର ଶୁଣନ୍ତୁ",
+      thinking: "ଉତ୍ତର ପ୍ରସ୍ତୁତ ହେଉଛି...",
+      speakQuery: "କୁହନ୍ତୁ",
+      stopInput: "ବନ୍ଦ କରନ୍ତୁ",
+      stopAudio: "ଅଡିଓ ବନ୍ଦ କରନ୍ତୁ",
+      placeholder: "ଆପଣଙ୍କର କୃଷି ପ୍ରଶ୍ନ ଏଠାରେ ପଚାରନ୍ତୁ...",
+      send: "ପଠାନ୍ତୁ",
+      talking: "ପଠାଯାଉଛି...",
+      mode: "ODIA MODE"
+    },
+    en: {
+      title: "FarmWise AI Voice Advisor",
+      newChat: "New Chat",
+      replayAudio: "Replay Audio",
+      thinking: "FarmWise AI is thinking...",
+      speakQuery: "Speak Query",
+      stopInput: "Stop Voice Input",
+      stopAudio: "Stop Audio",
+      placeholder: "Ask your farming query here...",
+      send: "Send",
+      talking: "Thinking...",
+      mode: "ENGLISH MODE"
+    }
+  };
+
+  const ui = uiTexts[selectedLanguage as keyof typeof uiTexts] || uiTexts.en;
 
   return (
-    <Card className="w-full">
-      <CardHeader className="pb-3">
+    <Card className="w-full max-w-4xl mx-auto shadow-md border rounded-xl overflow-hidden flex flex-col h-[75vh]">
+      {/* Header */}
+      <CardHeader className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white p-4 shrink-0">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Mic className="w-5 h-5 text-primary" />
-            {t('voice.title')}
+          <CardTitle className="flex items-center space-x-2 text-base sm:text-lg font-bold">
+            <Bot className="w-5 h-5" />
+            <span>{ui.title}</span>
           </CardTitle>
-          <div className="flex items-center gap-2">
+
+          <div className="flex items-center space-x-2">
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
-              onClick={() => setIsExpanded(!isExpanded)}
+              onClick={handleNewChat}
+              className="text-xs bg-white/20 hover:bg-white/30 text-white border-0 font-medium"
             >
-              {isExpanded ? t('button.collapse') : t('button.expand')}
+              <MessageSquarePlus className="w-4 h-4 mr-1.5" />
+              {ui.newChat}
             </Button>
-            {conversationHistory.length > 0 && (
+            {messages.length > 0 && (
               <Button
-                variant="outline"
+                variant="destructive"
                 size="sm"
-                onClick={clearHistory}
-                className="text-destructive hover:text-destructive"
+                onClick={handleClearHistory}
+                className="text-xs px-2.5"
               >
                 <Trash2 className="w-4 h-4" />
               </Button>
@@ -338,175 +362,153 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand, language: ap
           </div>
         </div>
       </CardHeader>
-      
-      <CardContent className="space-y-4">
-        {/* Main Controls */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            onClick={toggleListening}
-            variant={isListening ? "destructive" : "default"}
-            size="lg"
-            className="flex items-center gap-2"
-          >
-            {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-            {isListening ? t('voice.stop') : t('voice.start')}
-          </Button>
-          
-          {isSpeaking && (
-            <Button
-              onClick={stopSpeaking}
-              variant="outline"
-              size="lg"
-              className="flex items-center gap-2"
-            >
-              <VolumeX className="w-4 h-4" />
-              {t('voice.stopSpeaking')}
-            </Button>
-          )}
-        </div>
 
-        {/* Status */}
-        <div className="text-sm text-muted-foreground">
-          {isListening ? t('voice.listening') :
-           isGenerating ? "Generating response from AI..." :
-           isSpeaking ? t('voice.speaking') :
-           t('voice.idle')}
-        </div>
-
-        <form onSubmit={handleTypedQuery} className="space-y-2">
-          <label className="text-sm font-medium">{t('voice.typeTitle')}</label>
-          <div className="flex gap-2">
-            <Input
-              value={typedQuery}
-              onChange={(e) => setTypedQuery(transliterateInput(e.target.value, selectedLanguage))}
-              placeholder={t('placeholder.typeQuestion')}
-              disabled={isGenerating}
-              data-testid="input-typed-voice-query"
-            />
-            <Button type="submit" disabled={!typedQuery.trim() || isGenerating} data-testid="button-send-typed-query">
-              {isGenerating ? "Thinking..." : t('voice.send')}
-            </Button>
-          </div>
-        </form>
-
-        {/* Current Interaction */}
-        {(transcript || response || isGenerating) && (
-          <div className="space-y-3">
-            {transcript && (
-              <div className="p-3 bg-muted rounded-lg">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm font-medium">{t('voice.youSaid')}</span>
-                  <Badge variant="secondary" className="text-xs">
-                    {getLanguageFlag(currentLanguage)} {currentLanguage.toUpperCase()}
-                  </Badge>
-                </div>
-                <p className="text-sm italic">"{transcript}"</p>
+      <CardContent className="flex-1 p-4 flex flex-col justify-between overflow-hidden bg-muted/20">
+        {/* Messages Stream */}
+        <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+          {messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center p-6 text-muted-foreground">
+              <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center mb-3">
+                <Sparkles className="w-6 h-6" />
               </div>
-            )}
-
-            {isGenerating && (
-              <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg flex items-center space-x-3">
-                <div className="w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin shrink-0"></div>
-                <div>
-                  <p className="text-sm font-medium text-primary">FarmWise AI Advisor is thinking...</p>
-                  <p className="text-xs text-muted-foreground">Analyzing your farming query and building step-by-step guidance.</p>
-                </div>
-              </div>
-            )}
-
-            {response && !isGenerating && (
-              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-green-900">{t('voice.response')}</span>
-                    <Badge variant="secondary" className="text-xs">
-                      {getLanguageFlag(currentLanguage)} {currentLanguage.toUpperCase()}
-                    </Badge>
-                  </div>
-                  <Button
-                    onClick={() => {
-                      const speechLang = speechLangMap[currentLanguage] || 'en-US';
-                      speakText(response, speechLang);
-                    }}
-                    variant="outline"
-                    size="sm"
-                    className="h-6 px-2"
-                  >
-                    <Volume2 className="w-3 h-3" />
-                  </Button>
-                </div>
-                <p className="text-sm text-green-950 whitespace-pre-wrap leading-relaxed">{response}</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Error Display */}
-        {error && (
-          <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
-            <p className="text-sm text-destructive">{t('voice.error')}: {error}</p>
-          </div>
-        )}
-
-        {/* Conversation History */}
-        {isExpanded && conversationHistory.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-medium">{t('voice.history')} ({conversationHistory.length})</h4>
-              <Button
-                onClick={clearHistory}
-                variant="outline"
-                size="sm"
-                className="text-destructive hover:text-destructive"
+              <h3 className="font-semibold text-base text-foreground">{ui.title}</h3>
+              <p className="text-xs max-w-md mt-1">
+                {selectedLanguage === 'hi' 
+                  ? "खेती, खाद, फसल सुरक्षा, मौसम या सिंचाई के बारे में कोई भी सवाल पूछें। आपकी बातचीत प्राकृतिक रूप से जारी रहेगी।"
+                  : "Ask anything about crops, fertilizers, pest control, weather, or irrigation. Your conversation will continue naturally."}
+              </p>
+            </div>
+          ) : (
+            messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`flex space-x-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                <Trash2 className="w-3 h-3 mr-1" />
-                {t('button.clear')}
-              </Button>
-            </div>
-            
-            <div className="max-h-60 overflow-y-auto space-y-2">
-              {conversationHistory.slice().reverse().map((conversation) => (
-                <div 
-                  key={conversation.id}
-                  className="p-3 bg-card border rounded-lg space-y-2"
+                {msg.role === 'assistant' && (
+                  <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                    <Bot className="w-4 h-4" />
+                  </div>
+                )}
+
+                <div
+                  className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
+                    msg.role === 'user'
+                      ? 'bg-emerald-600 text-white rounded-br-none'
+                      : 'bg-card border text-card-foreground rounded-bl-none'
+                  }`}
                 >
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{conversation.timestamp.toLocaleString()}</span>
-                    <Badge variant="outline" className="text-xs">
-                      {getLanguageFlag(conversation.language)} {conversation.language.toUpperCase()}
-                    </Badge>
-                  </div>
+                  <p className="whitespace-pre-wrap leading-relaxed">{cleanStepFormatting(msg.text, msg.language || selectedLanguage)}</p>
                   
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">{t('voice.youAsked')}</p>
-                    <p className="text-sm italic">"{conversation.question}"</p>
-                  </div>
-                  
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">{t('voice.assistantReplied')}</p>
-                    <p className="text-sm whitespace-pre-wrap leading-relaxed">{conversation.answer}</p>
-                  </div>
-                  
-                  <Button
-                    onClick={() => {
-                      const speechLang = speechLangMap[conversation.language] || 'en-US';
-                      speakText(conversation.answer, speechLang);
-                    }}
-                    variant="outline"
-                    size="sm"
-                    className="h-6 px-2"
-                  >
-                    <RotateCcw className="w-3 h-3 mr-1" />
-                    {t('button.replay')}
-                  </Button>
+                  {msg.role === 'assistant' && (
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/40 text-[10px] text-muted-foreground">
+                      <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => speakText(msg.text, speechLangMap[msg.language || 'en'] || 'en-US')}
+                        className="h-5 px-1 text-[10px]"
+                      >
+                        <Volume2 className="w-3 h-3 mr-1" />
+                        {ui.replayAudio}
+                      </Button>
+                    </div>
+                  )}
                 </div>
-              ))}
+
+                {msg.role === 'user' && (
+                  <div className="w-8 h-8 rounded-full bg-muted border flex items-center justify-center shrink-0 shadow-sm mt-0.5 text-muted-foreground">
+                    <User className="w-4 h-4" />
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+
+          {isGenerating && (
+            <div className="flex space-x-3 justify-start">
+              <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                <Bot className="w-4 h-4 animate-pulse" />
+              </div>
+              <div className="bg-card border rounded-2xl rounded-bl-none px-4 py-3 shadow-sm flex items-center space-x-2">
+                <div className="w-4 h-4 rounded-full border-2 border-emerald-600 border-t-transparent animate-spin" />
+                <span className="text-xs text-muted-foreground font-medium">{ui.thinking}</span>
+              </div>
             </div>
+          )}
+
+          <div ref={chatBottomRef} />
+        </div>
+
+        {/* Controls & Input Form */}
+        <div className="pt-3 border-t space-y-3 shrink-0">
+          {/* Voice Mic Controls */}
+          <div className="flex items-center justify-between bg-card p-2 rounded-xl border">
+            <div className="flex items-center space-x-2">
+              <Button
+                onClick={toggleListening}
+                variant={isListening ? "destructive" : "default"}
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+              >
+                {isListening ? <MicOff className="w-4 h-4 mr-1.5" /> : <Mic className="w-4 h-4 mr-1.5" />}
+                {isListening ? ui.stopInput : ui.speakQuery}
+              </Button>
+
+              {isSpeaking && (
+                <Button
+                  onClick={stopSpeaking}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                >
+                  <VolumeX className="w-3.5 h-3.5 mr-1" />
+                  {ui.stopAudio}
+                </Button>
+              )}
+            </div>
+
+            <Badge variant="outline" className="text-[10px] uppercase font-semibold">
+              {ui.mode}
+            </Badge>
           </div>
-        )}
+
+          {/* Text Input Form */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSendQuery(typedQuery);
+            }}
+            className="flex space-x-2"
+          >
+            <div className="flex-1">
+              <Input
+                value={typedQuery}
+                onChange={(e) => {
+                  setInputError('');
+                  setTypedQuery(transliterateInput(e.target.value, selectedLanguage));
+                }}
+                placeholder={ui.placeholder}
+                disabled={isGenerating}
+                className={inputError ? 'border-destructive focus-visible:ring-destructive' : ''}
+              />
+              {inputError && <p className="text-xs text-destructive mt-1">{inputError}</p>}
+            </div>
+            <Button
+              type="submit"
+              disabled={!typedQuery.trim() || isGenerating}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 shrink-0"
+            >
+              {isGenerating ? (
+                ui.talking
+              ) : (
+                <span className="flex items-center"><Send className="w-4 h-4 mr-1" /> {ui.send}</span>
+              )}
+            </Button>
+          </form>
+        </div>
       </CardContent>
     </Card>
   );
-};
+}
 
 export default VoiceAssistant;

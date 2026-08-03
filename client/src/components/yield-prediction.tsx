@@ -27,7 +27,27 @@ export function YieldPrediction({ farmer }: YieldPredictionProps) {
     year: new Date().getFullYear().toString()
   });
   
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [prediction, setPrediction] = useState<any>(null);
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    if (!yieldData.crop) newErrors.crop = "Please select Crop.";
+    if (!yieldData.season) newErrors.season = "Please select Season.";
+    if (!yieldData.area || yieldData.area.trim() === '') newErrors.area = "Please enter Farm Area.";
+    if (!yieldData.year) newErrors.year = "Please select Year.";
+
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      toast({
+        title: "Validation Error",
+        description: "Please complete all required fields.",
+        variant: "destructive"
+      });
+      return false;
+    }
+    return true;
+  };
 
   const predictionMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -38,17 +58,17 @@ export function YieldPrediction({ farmer }: YieldPredictionProps) {
       if (data.success) {
         setPrediction(data.prediction);
         toast({
-          title: t('yield.complete'),
+          title: "✅ Yield prediction completed.",
           description: `Expected production: ${formatNumber(data.prediction.predicted_production, farmer.language)} ${formatUnit('tons', farmer.language)}`,
         });
       } else {
         throw new Error(data.error || 'Prediction failed');
       }
     },
-    onError: (error) => {
+    onError: () => {
       toast({
-        title: t('yield.failed'),
-        description: error.message,
+        title: "Prediction Error",
+        description: "We couldn't generate yield prediction. Please check your farm area and try again.",
         variant: "destructive",
       });
     }
@@ -56,6 +76,7 @@ export function YieldPrediction({ farmer }: YieldPredictionProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateForm()) return;
     
     const numericData = {
       ...yieldData,
@@ -86,10 +107,12 @@ export function YieldPrediction({ farmer }: YieldPredictionProps) {
               <Label htmlFor="crop">{t('yield.crop')}</Label>
               <Select
                 value={yieldData.crop}
-                onValueChange={(value) => setYieldData(prev => ({ ...prev, crop: value }))}
-                required
+                onValueChange={(value) => {
+                  setErrors(prev => ({ ...prev, crop: '' }));
+                  setYieldData(prev => ({ ...prev, crop: value }));
+                }}
               >
-                <SelectTrigger data-testid="select-crop">
+                <SelectTrigger className={errors.crop ? 'border-destructive focus:ring-destructive' : ''} data-testid="select-crop">
                   <SelectValue placeholder={t('yield.selectCrop')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -100,16 +123,19 @@ export function YieldPrediction({ farmer }: YieldPredictionProps) {
                   ))}
                 </SelectContent>
               </Select>
+              {errors.crop && <p className="text-xs text-destructive mt-1">{errors.crop}</p>}
             </div>
             
             <div>
               <Label htmlFor="season">{t('yield.season')}</Label>
               <Select
                 value={yieldData.season}
-                onValueChange={(value) => setYieldData(prev => ({ ...prev, season: value }))}
-                required
+                onValueChange={(value) => {
+                  setErrors(prev => ({ ...prev, season: '' }));
+                  setYieldData(prev => ({ ...prev, season: value }));
+                }}
               >
-                <SelectTrigger data-testid="select-season">
+                <SelectTrigger className={errors.season ? 'border-destructive focus:ring-destructive' : ''} data-testid="select-season">
                   <SelectValue placeholder={t('yield.selectSeason')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -118,6 +144,7 @@ export function YieldPrediction({ farmer }: YieldPredictionProps) {
                   <SelectItem value="Summer">{t(getLocalizedSeasonName('summer', farmer.language))} (April-June)</SelectItem>
                 </SelectContent>
               </Select>
+              {errors.season && <p className="text-xs text-destructive mt-1">{errors.season}</p>}
             </div>
             
             <div>
@@ -127,23 +154,32 @@ export function YieldPrediction({ farmer }: YieldPredictionProps) {
                 type="number"
                 placeholder={t('yield.enterArea', { unit: formatUnit('hectares', farmer.language) })}
                 value={yieldData.area}
-                onChange={(e) => setYieldData(prev => ({ ...prev, area: e.target.value }))}
-                required
+                onChange={(e) => {
+                  setErrors(prev => ({ ...prev, area: '' }));
+                  setYieldData(prev => ({ ...prev, area: e.target.value }));
+                }}
                 min="0.1"
                 step="0.1"
+                className={errors.area ? 'border-destructive focus-visible:ring-destructive' : ''}
                 data-testid="input-area"
               />
-              <span className="text-xs text-muted-foreground">{formatUnit('hectares', farmer.language)}</span>
+              {errors.area ? (
+                <p className="text-xs text-destructive mt-1">{errors.area}</p>
+              ) : (
+                <span className="text-xs text-muted-foreground">{formatUnit('hectares', farmer.language)}</span>
+              )}
             </div>
             
             <div>
               <Label htmlFor="year">{t('yield.year')}</Label>
               <Select
                 value={yieldData.year}
-                onValueChange={(value) => setYieldData(prev => ({ ...prev, year: value }))}
-                required
+                onValueChange={(value) => {
+                  setErrors(prev => ({ ...prev, year: '' }));
+                  setYieldData(prev => ({ ...prev, year: value }));
+                }}
               >
-                <SelectTrigger data-testid="select-year">
+                <SelectTrigger className={errors.year ? 'border-destructive focus:ring-destructive' : ''} data-testid="select-year">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -154,17 +190,18 @@ export function YieldPrediction({ farmer }: YieldPredictionProps) {
                   ))}
                 </SelectContent>
               </Select>
+              {errors.year && <p className="text-xs text-destructive mt-1">{errors.year}</p>}
             </div>
             </div>
 
             <Button 
               type="submit" 
-              className="w-full"
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
               disabled={predictionMutation.isPending}
               data-testid="button-predict-yield"
             >
               <TrendingUp className="w-4 h-4 mr-2" />
-              {predictionMutation.isPending ? t('loading.predicting') : t('yield.predict')}
+              {predictionMutation.isPending ? "Predicting Yield..." : t('yield.predict')}
             </Button>
           </form>
         </CardContent>

@@ -23,6 +23,7 @@ const resources = {
       "login.name": "Name",
       "login.state": "State",
       "login.district": "District",
+      "login.language": "Preferred Language",
       "login.continue": "Continue to Dashboard",
       "login.secure": "Your data is secure and stored locally",
       
@@ -139,6 +140,12 @@ const resources = {
       
       // Settings
       "settings.title": "Settings",
+      "settings.profile": "Account Profile",
+      "settings.saveAccount": "Save Account Profile",
+      "settings.saving": "Saving...",
+      "settings.theme": "Theme Mode",
+      "settings.darkMode": "Dark Mode",
+      "settings.lightMode": "Light Mode",
       "settings.voice": "Voice Assistant",
       "settings.voiceOutput": "Voice Output",
       "settings.language": "Language Preference",
@@ -451,6 +458,7 @@ const resources = {
       "login.name": "नाम",
       "login.state": "राज्य",
       "login.district": "जिला",
+      "login.language": "पसंदीदा भाषा",
       "login.continue": "डैशबोर्ड पर जाएं",
       "login.secure": "आपका डेटा सुरक्षित है और स्थानीय रूप से संग्रहीत है",
       
@@ -567,6 +575,12 @@ const resources = {
       
       // Settings
       "settings.title": "सेटिंग्स",
+      "settings.profile": "खाता प्रोफ़ाइल",
+      "settings.saveAccount": "खाता विवरण सहेजें",
+      "settings.saving": "सहेजा जा रहा है...",
+      "settings.theme": "थीम मोड",
+      "settings.darkMode": "डार्क मोड",
+      "settings.lightMode": "लाइट मोड",
       "settings.voice": "वॉयस असिस्टेंट",
       "settings.voiceOutput": "वॉयस आउटपुट",
       "settings.language": "भाषा प्राथमिकता",

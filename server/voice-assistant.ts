@@ -16,14 +16,42 @@ type VoiceQueryBody = {
   farmerId: string;
 };
 
+function formatLanguageSteps(text: string, lang: string): string {
+  if (!text) return text;
+  if (lang === 'hi') {
+    return text
+      .replace(/\bStep\s*1\b:?/gi, 'पहला चरण:')
+      .replace(/\bStep\s*2\b:?/gi, 'दूसरा चरण:')
+      .replace(/\bStep\s*3\b:?/gi, 'तीसरा चरण:')
+      .replace(/\bStep\s*4\b:?/gi, 'चौथा चरण:')
+      .replace(/\bStep\s*5\b:?/gi, 'पांचवां चरण:')
+      .replace(/\bStep\s*6\b:?/gi, 'छठा चरण:')
+      .replace(/\bStep\s*7\b:?/gi, 'सातवां चरण:')
+      .replace(/\bStep\s*8\b:?/gi, 'आठवां चरण:')
+      .replace(/\bStep\s*9\b:?/gi, 'नौवां चरण:')
+      .replace(/\bStep\s*10\b:?/gi, 'दसवां चरण:')
+      .replace(/\bStep\s*(\d+)\b:?/gi, 'चरण $1:');
+  }
+  if (lang === 'or' || lang === 'od') {
+    return text
+      .replace(/\bStep\s*1\b:?/gi, 'ପ୍ରଥମ ଚରଣ:')
+      .replace(/\bStep\s*2\b:?/gi, 'ଦ୍ୱିତୀୟ ଚରଣ:')
+      .replace(/\bStep\s*3\b:?/gi, 'ତୃତୀୟ ଚରଣ:')
+      .replace(/\bStep\s*(\d+)\b:?/gi, 'ଚରଣ $1:');
+  }
+  return text;
+}
+
 // System instruction to act as a farming advisor and respond step-by-step
 const SYSTEM_INSTRUCTION = `You are a highly knowledgeable farming advisor for FarmWise. 
 Your goal is to provide clear, actionable advice to farmers based on their queries.
 CRITICAL RULES:
 1. NEVER respond with a huge block of paragraph text.
-2. ALWAYS format your response as a numbered step-by-step guide (Step 1, Step 2, etc.).
-3. Keep each step concise and actionable.
-4. Speak in the language requested by the user. If they speak in a regional language, respond in that exact same language.
+2. ALWAYS format your response as a numbered step-by-step guide.
+3. ABSOLUTE LANGUAGE PURITY: You MUST write 100% of your response in the user's requested language.
+   - If the user's language is Hindi (hi), format step numbers as "पहला चरण:", "दूसरा चरण:", "तीसरा चरण:" or "चरण 1:", "चरण 2:". NEVER output English words like "Step 1", "Step 2" in a Hindi or regional language response.
+   - If the user's language is Odia or another language, use that language's step numbers or standard numerals ("1.", "2."). NEVER mix English words into Hindi/regional responses.
+4. Keep each step concise, helpful, and actionable for farmers.
 5. If the query is unclear, ask a clarifying question in the same step-by-step format.`;
 
 export async function handleVoiceQuery(req: Request, res: Response) {
@@ -56,7 +84,13 @@ export async function handleVoiceQuery(req: Request, res: Response) {
       });
     }
 
-    const prompt = `${contextStr}Please answer the following query from the farmer in ${langObj.name}:\nQuery: "${query}"\n\nRemember to answer strictly in a step-by-step format (Step 1, Step 2, etc.).`;
+    const stepFormatInstruction = (detectedLanguage === 'hi') 
+      ? 'Use Hindi step prefixes like "पहला चरण:", "दूसरा चरण:", "तीसरा चरण:". Do NOT use English words like "Step 1".'
+      : (detectedLanguage === 'or' || detectedLanguage === 'od')
+      ? 'Use Odia step prefixes like "ପ୍ରଥମ ଚରଣ:", "ଦ୍ୱିତୀୟ ଚରଣ:". Do NOT use English words.'
+      : 'Use step prefixes like "Step 1:", "Step 2:".';
+
+    const prompt = `${contextStr}Please answer the following farming query strictly in ${langObj.name} (${langObj.native}):\nQuery: "${query}"\n\nInstruction: Answer strictly in a step-by-step format in ${langObj.name}. ${stepFormatInstruction}`;
 
     // Call Gemini
     const response = await ai.models.generateContent({
@@ -68,7 +102,8 @@ export async function handleVoiceQuery(req: Request, res: Response) {
       }
     });
 
-    const responseText = response.text || "I'm sorry, I couldn't generate a response at this time.";
+    let responseText = response.text || "I'm sorry, I couldn't generate a response at this time.";
+    responseText = formatLanguageSteps(responseText, detectedLanguage);
 
     // Save to history via storage
     await storage.createVoiceConversation({

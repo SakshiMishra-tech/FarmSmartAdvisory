@@ -4,14 +4,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertTriangle, CloudRain, Sun, Bug, Shield, AlertCircle, Thermometer, Droplets, Info, ArrowRight } from 'lucide-react';
+import { AlertTriangle, CloudRain, Sun, Bug, Shield, AlertCircle, Thermometer, Droplets, Info } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { useTranslation } from 'react-i18next';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { supportedCrops } from '@shared/schema.ts';
-import { formatNumber, getLocalizedCropName } from '@/lib/utils';
+import { supportedCrops } from '@shared/schema';
+import { getLocalizedCropName } from '@/lib/utils';
 
 interface CalamityPredictionProps {
   farmer: any;
@@ -21,18 +21,21 @@ export function CalamityPrediction({ farmer }: CalamityPredictionProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [prediction, setPrediction] = useState<any>(null);
+  const [selectedCrop, setSelectedCrop] = useState('');
+  const [cropError, setCropError] = useState('');
+
   const [weatherData, setWeatherData] = useState({
     temperature: 28,
     humidity: 65,
     rainfall: 450
   });
+
   const [soilData, setSoilData] = useState({
     N: 90,
     P: 42,
     K: 43,
     ph: 6.5
   });
-  const [selectedCrop, setSelectedCrop] = useState('');
 
   const calamityMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -47,14 +50,14 @@ export function CalamityPrediction({ farmer }: CalamityPredictionProps) {
     onSuccess: (data) => {
       setPrediction(data.prediction);
       toast({
-        title: t('calamity.complete'),
+        title: "✅ Calamity risk assessment completed.",
         description: `${t('calamity.overallRisk')}: ${t(`risk.${data.prediction.overall_risk}`)}`,
       });
     },
-    onError: (error: any) => {
+    onError: () => {
       toast({
-        title: t('toast.predictionFailed'),
-        description: error.message || t('calamity.failed'),
+        title: "Assessment Error",
+        description: "We couldn't complete the risk assessment. Please try again.",
         variant: 'destructive',
       });
     }
@@ -62,9 +65,10 @@ export function CalamityPrediction({ farmer }: CalamityPredictionProps) {
 
   const handlePredict = () => {
     if (!selectedCrop) {
+      setCropError("Please select Crop.");
       toast({
-        title: t('calamity.selectCropTitle'),
-        description: t('calamity.selectCropDesc'),
+        title: "Validation Error",
+        description: "Please complete all required fields.",
         variant: 'destructive',
       });
       return;
@@ -225,8 +229,14 @@ export function CalamityPrediction({ farmer }: CalamityPredictionProps) {
           {/* Crop Selection */}
           <div className="space-y-2">
             <Label htmlFor="crop">{t('calamity.selectCrop')}</Label>
-            <Select value={selectedCrop} onValueChange={setSelectedCrop}>
-              <SelectTrigger>
+            <Select 
+              value={selectedCrop} 
+              onValueChange={(val) => {
+                setCropError('');
+                setSelectedCrop(val);
+              }}
+            >
+              <SelectTrigger className={cropError ? 'border-destructive focus:ring-destructive' : ''}>
                 <SelectValue placeholder={t('calamity.chooseCrop')} />
               </SelectTrigger>
               <SelectContent>
@@ -237,14 +247,15 @@ export function CalamityPrediction({ farmer }: CalamityPredictionProps) {
                 ))}
               </SelectContent>
             </Select>
+            {cropError && <p className="text-xs text-destructive mt-1">{cropError}</p>}
           </div>
 
           <Button 
             onClick={handlePredict} 
             disabled={calamityMutation.isPending}
-            className="w-full"
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
           >
-            {calamityMutation.isPending ? t('loading.analyzingShort') : t('calamity.predict')}
+            {calamityMutation.isPending ? "Analyzing Calamity Risk..." : t('calamity.predict')}
           </Button>
         </CardContent>
       </Card>
@@ -252,7 +263,6 @@ export function CalamityPrediction({ farmer }: CalamityPredictionProps) {
       {/* Prediction Results */}
       {prediction && (
         <div className="space-y-4">
-          {/* Overall Risk Assessment */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
@@ -296,116 +306,28 @@ export function CalamityPrediction({ farmer }: CalamityPredictionProps) {
                     <Thermometer className="w-6 h-6" />
                   </div>
                   <div>
-                    <div className="text-sm text-muted-foreground font-medium">{t('crop.temperature')}</div>
-                    <div className="text-2xl font-bold text-orange-900">{prediction.weather_conditions.temperature}°C</div>
+                    <div className="text-xs text-orange-600 font-medium">{t('crop.temperature')}</div>
+                    <div className="text-2xl font-bold text-orange-950">{prediction.weather_conditions?.temperature || weatherData.temperature}°C</div>
                   </div>
                 </div>
-                <div className="flex items-center p-4 bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-100 rounded-xl">
+                <div className="flex items-center p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-xl">
                   <div className="p-3 bg-blue-100 text-blue-600 rounded-full mr-4">
                     <Droplets className="w-6 h-6" />
                   </div>
                   <div>
-                    <div className="text-sm text-muted-foreground font-medium">{t('crop.humidity')}</div>
-                    <div className="text-2xl font-bold text-blue-900">{prediction.weather_conditions.humidity}%</div>
+                    <div className="text-xs text-blue-600 font-medium">{t('crop.humidity')}</div>
+                    <div className="text-2xl font-bold text-blue-950">{prediction.weather_conditions?.humidity || weatherData.humidity}%</div>
                   </div>
                 </div>
-                <div className="flex items-center p-4 bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-100 rounded-xl">
-                  <div className="p-3 bg-indigo-100 text-indigo-600 rounded-full mr-4">
+                <div className="flex items-center p-4 bg-gradient-to-br from-sky-50 to-cyan-50 border border-sky-100 rounded-xl">
+                  <div className="p-3 bg-sky-100 text-sky-600 rounded-full mr-4">
                     <CloudRain className="w-6 h-6" />
                   </div>
                   <div>
-                    <div className="text-sm text-muted-foreground font-medium">{t('crop.rainfall')}</div>
-                    <div className="text-2xl font-bold text-indigo-900">{prediction.weather_conditions.rainfall}mm</div>
+                    <div className="text-xs text-sky-600 font-medium">{t('crop.rainfall')}</div>
+                    <div className="text-2xl font-bold text-sky-950">{prediction.weather_conditions?.rainfall || weatherData.rainfall} mm</div>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Calamity Risks */}
-          {prediction.calamities.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('calamity.identifiedRisks')}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {prediction.calamities.map((calamity: any, index: number) => (
-                    <div key={index} className="p-5 border bg-card shadow-sm rounded-xl hover:shadow-md transition-shadow">
-                      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-4">
-                        <div className="flex items-start space-x-3">
-                          <div className="p-2 bg-muted rounded-lg shrink-0">
-                            {getCalamityIcon(calamity.type)}
-                          </div>
-                          <div>
-                            <h4 className="text-lg font-bold">{t(`calamity.${calamity.type}`)}</h4>
-                            <div className="flex items-center mt-1 space-x-2">
-                              <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${
-                                calamity.severity === 'HIGH' ? 'bg-red-100 text-red-700' :
-                                calamity.severity === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' :
-                                'bg-green-100 text-green-700'
-                              }`}>
-                                {t(`risk.${calamity.severity}`)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="md:text-right md:min-w-[120px]">
-                          <div className="text-sm text-muted-foreground mb-1">Probability</div>
-                          <div className="flex items-center space-x-2">
-                            <Progress value={calamity.probability * 100} className="w-20 h-2" />
-                            <span className="font-bold">{Math.round(calamity.probability * 100)}%</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mb-5 bg-muted/30 p-3 rounded-lg border border-muted">
-                        <h5 className="text-sm font-semibold flex items-center space-x-1.5 mb-1.5 text-foreground/80">
-                          <Info className="w-4 h-4 text-primary" />
-                          <span>Why this prediction?</span>
-                        </h5>
-                        <p className="text-sm text-muted-foreground leading-relaxed">
-                          {calamity.description}
-                        </p>
-                      </div>
-
-                      <div>
-                        <h5 className="text-sm font-semibold flex items-center space-x-1.5 mb-3 text-foreground/80">
-                          <AlertTriangle className="w-4 h-4 text-amber-500" />
-                          <span>{t('calamity.recommendations')}</span>
-                        </h5>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {calamity.recommendations.map((rec: string, idx: number) => (
-                            <div key={idx} className="flex items-start space-x-3 p-3 bg-background border rounded-lg">
-                              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shadow-sm">
-                                {idx + 1}
-                              </span>
-                              <span className="text-sm pt-0.5">{rec}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Preventive Measures */}
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('calamity.preventive')}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {prediction.preventive_measures.map((measure: string, index: number) => (
-                  <div key={index} className="flex items-start space-x-3 p-3 bg-muted/30 border rounded-lg hover:bg-muted/50 transition-colors">
-                    <ArrowRight className="text-primary w-4 h-4 mt-0.5 flex-shrink-0" />
-                    <span className="text-sm leading-relaxed">{measure}</span>
-                  </div>
-                ))}
               </div>
             </CardContent>
           </Card>

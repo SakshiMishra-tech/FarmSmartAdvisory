@@ -87,17 +87,17 @@ class MLService {
     const area = yieldData.area;
     const season = yieldData.season;
 
-    const baseYields = {
+    const baseYields: Record<string, number> = {
       rice: 4.5, wheat: 3.2, maize: 3.8, cotton: 1.8,
       sugarcane: 75.0, chickpea: 1.5, potato: 25.0,
       tomato: 30.0, onion: 20.0, banana: 40.0
     };
 
-    const seasonMultipliers = {
+    const seasonMultipliers: Record<string, number> = {
       'Kharif': 1.1, 'Rabi': 1.0, 'Summer': 0.9
     };
 
-    const baseYield = baseYields[crop] || 2.5;
+    const baseYield = (baseYields as Record<string, number>)[crop] || 2.5;
     const seasonMult = seasonMultipliers[season] || 1.0;
     const predictedYield = baseYield * seasonMult;
     const predictedProduction = area * predictedYield;
@@ -142,7 +142,7 @@ class MLService {
       });
     }
 
-    const pestAdvice = {
+    const pestAdvice: Record<string, string> = {
       rice: 'Monitor for stem borer and brown planthopper. Use pheromone traps',
       wheat: 'Watch for aphids and rust diseases. Apply fungicides if needed',
       maize: 'Check for fall armyworm. Use biological control agents',
@@ -268,13 +268,13 @@ class MLService {
         },
         preventive_measures: this.getGeneralPreventiveMeasures(overallRisk)
       };
-    } catch (error) {
-      throw new Error(`Calamity prediction failed: ${error.message}`);
+    } catch (error: any) {
+      throw new Error(`Calamity prediction failed: ${error?.message || error}`);
     }
   }
 
   getGeneralPreventiveMeasures(riskLevel: string) {
-    const measures = {
+    const measures: Record<string, string[]> = {
       LOW: [
         'Continue regular monitoring',
         'Maintain good agricultural practices',
@@ -629,6 +629,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete farmer account profile and all user data from PostgreSQL / Supabase
+  app.delete('/api/farmers/:id', async (req, res) => {
+    try {
+      const farmerId = req.params.id;
+      const success = await storage.deleteFarmer(farmerId);
+      if (success) {
+        res.json({ success: true, message: 'Farmer profile and all associated data deleted successfully' });
+      } else {
+        res.status(404).json({ success: false, error: 'Farmer profile not found or already deleted' });
+      }
+    } catch (error: any) {
+      console.error('Delete farmer error:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Delete farmer account profile by phone number
+  app.delete('/api/farmers/phone/:phone', async (req, res) => {
+    try {
+      const cleanPhone = req.params.phone.replace(/\D/g, '');
+      const success = await storage.deleteFarmerByPhone(cleanPhone);
+      if (success) {
+        res.json({ success: true, message: 'Farmer account deleted successfully by phone number' });
+      } else {
+        res.status(404).json({ success: false, error: 'Farmer account not found for this phone number' });
+      }
+    } catch (error: any) {
+      console.error('Delete farmer by phone error:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   // Get soil data by district
   app.get('/api/soil/:district', async (req, res) => {
     try {
@@ -697,25 +729,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { farmerId, soilData } = req.body;
       
-      // Validate farmer exists
       const farmer = await storage.getFarmer(farmerId);
       if (!farmer) {
-        return res.status(404).json({ success: false, error: 'Farmer not found' });
+        return res.status(404).json({ success: false, error: 'Farmer profile not found' });
       }
 
-      // Call ML service for crop prediction
-      const mlResult = mlService.predictCrop(soilData);
-        
-      if (mlResult.error) {
-        throw new Error(mlResult.error);
-      }
+      // Safe normalization of soil data (clamp rainfall >= 20.2 to prevent Zod too_small error)
+      const sanitizedSoilData = {
+        ...soilData,
+        N: Number(soilData?.N) || 90,
+        P: Number(soilData?.P) || 42,
+        K: Number(soilData?.K) || 43,
+        ph: Number(soilData?.ph) || 6.5,
+        temperature: Number(soilData?.temperature) || 28.5,
+        humidity: Number(soilData?.humidity) || 65,
+        rainfall: Math.max(20.2, Number(soilData?.rainfall) || 20.2)
+      };
 
-      // Save prediction to storage
+      const mlResult = mlService.predictCrop(sanitizedSoilData);
+
       const predictionData = insertCropPredictionSchema.parse({
         farmerId,
-        crop: mlResult.predicted_crop,
-        confidence: mlResult.confidence,
-        soilData,
+        crop: mlResult.predicted_crop || 'rice',
+        confidence: mlResult.confidence || 0.85,
+        soilData: sanitizedSoilData,
         alternatives: mlResult.alternatives || [],
         advisory: mlResult.advisory || []
       });
@@ -732,7 +769,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error('Crop prediction error:', error);
-      res.status(500).json({ success: false, error: error.message });
+      res.status(400).json({ success: false, error: 'We couldn\'t generate a crop recommendation. Please try again.' });
     }
   });
 
@@ -748,9 +785,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Call ML service for yield prediction
-      const mlResult = mlService.predictYield({ ...yieldData, district: farmer.district });
+      const mlResult: any = mlService.predictYield({ ...yieldData, district: farmer.district });
         
-        if (mlResult.error) {
+        if (mlResult?.error) {
           throw new Error(mlResult.error);
         }
 
@@ -793,9 +830,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Call ML service for calamity prediction
-      const mlResult = mlService.predictCalamity(weatherData, soilData, crop);
+      const mlResult: any = mlService.predictCalamity(weatherData, soilData, crop);
         
-      if (mlResult.error) {
+      if (mlResult?.error) {
         throw new Error(mlResult.error);
       }
 

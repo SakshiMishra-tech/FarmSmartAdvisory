@@ -11,6 +11,8 @@ export interface IStorage {
   getFarmerByEmail(email: string): Promise<Farmer | undefined>;
   createFarmer(farmer: InsertFarmer & { id?: string }): Promise<Farmer>;
   updateFarmer(id: string, farmer: Partial<InsertFarmer>): Promise<Farmer>;
+  deleteFarmer(id: string): Promise<boolean>;
+  deleteFarmerByPhone(phone: string): Promise<boolean>;
   
   // Soil data operations
   getSoilDataByDistrict(district: string): Promise<SoilData | undefined>;
@@ -198,6 +200,37 @@ export class DatabaseStorage implements IStorage {
         isOnline: false
       })
       .where(eq(schema.loginHistory.sessionId, sessionId));
+  }
+
+  async deleteFarmer(id: string): Promise<boolean> {
+    try {
+      await db.delete(schema.cropPredictions).where(eq(schema.cropPredictions.farmerId, id));
+      await db.delete(schema.yieldPredictions).where(eq(schema.yieldPredictions.farmerId, id));
+      await db.delete(schema.calamityPredictions).where(eq(schema.calamityPredictions.farmerId, id));
+      await db.delete(schema.voiceConversations).where(eq(schema.voiceConversations.farmerId, id));
+      await db.delete(schema.soilHealthReports).where(eq(schema.soilHealthReports.farmerId, id));
+      await db.delete(schema.weatherLookups).where(eq(schema.weatherLookups.farmerId, id));
+      await db.delete(schema.loginHistory).where(eq(schema.loginHistory.userId, id));
+      
+      const result = await db.delete(schema.farmers).where(eq(schema.farmers.id, id)).returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error deleting farmer:', error);
+      return false;
+    }
+  }
+
+  async deleteFarmerByPhone(phone: string): Promise<boolean> {
+    try {
+      const cleanPhone = phone.replace(/\D/g, '');
+      const farmer = await this.getFarmerByPhone(cleanPhone);
+      if (!farmer) return false;
+
+      return await this.deleteFarmer(farmer.id);
+    } catch (error) {
+      console.error('Error deleting farmer by phone:', error);
+      return false;
+    }
   }
 }
 

@@ -59,16 +59,8 @@ export default function Dashboard({ farmer, onLogout }: DashboardProps) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => updateVoiceSettings({ enabled: !voiceSettings.enabled })}
-              data-testid="button-toggle-voice"
-            >
-              <Volume2 className={`w-5 h-5 ${voiceSettings.enabled ? 'text-primary' : 'text-muted-foreground'}`} />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
               onClick={() => setShowSettings(true)}
-              className="hidden md:flex"
+              className="flex"
               data-testid="button-open-settings"
             >
               <SettingsIcon className="w-5 h-5" />
