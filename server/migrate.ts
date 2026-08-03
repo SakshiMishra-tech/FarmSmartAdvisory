@@ -9,6 +9,8 @@ async function migrate() {
 
   const sql = postgres(process.env.DATABASE_URL, { prepare: false });
 
+  const quoteIdent = (value: string) => `"${value.replace(/"/g, '""')}"`;
+
   try {
     // Fix 1: Add missing columns to login_history if they don't exist
     const loginHistoryCols = await sql`
@@ -45,7 +47,38 @@ async function migrate() {
       }
     }
 
-    // Fix 2: Drop the bad FK constraint on weather_lookups if it references wrong table
+    // Fix 2: Ensure all profile foreign keys cascade deletes so user data is removed atomically.
+    const profileForeignKeys = await sql`
+      SELECT
+        tc.table_name,
+        tc.constraint_name,
+        kcu.column_name,
+        rc.delete_rule
+      FROM information_schema.table_constraints tc
+      JOIN information_schema.key_column_usage kcu
+        ON tc.constraint_name = kcu.constraint_name
+      JOIN information_schema.referential_constraints rc
+        ON rc.constraint_name = tc.constraint_name
+      JOIN information_schema.constraint_column_usage ccu
+        ON ccu.constraint_name = tc.constraint_name
+      WHERE tc.constraint_type = 'FOREIGN KEY'
+        AND ccu.table_name = 'profiles'
+    `;
+
+    for (const fk of profileForeignKeys as any[]) {
+      if (fk.delete_rule === 'CASCADE') {
+        console.log(`Cascade already configured: ${fk.table_name}.${fk.column_name}`);
+        continue;
+      }
+
+      console.log(`Rebuilding cascade FK: ${fk.table_name}.${fk.column_name}`);
+      await sql.unsafe(`ALTER TABLE ${quoteIdent(fk.table_name)} DROP CONSTRAINT ${quoteIdent(fk.constraint_name)}`);
+      await sql.unsafe(
+        `ALTER TABLE ${quoteIdent(fk.table_name)} ADD CONSTRAINT ${quoteIdent(fk.constraint_name)} FOREIGN KEY (${quoteIdent(fk.column_name)}) REFERENCES ${quoteIdent('profiles')}(${quoteIdent('id')}) ON DELETE CASCADE`
+      );
+    }
+
+    // Fix 3: Drop the bad FK constraint on weather_lookups if it references wrong table
     const constraints = await sql`
       SELECT constraint_name FROM information_schema.table_constraints 
       WHERE table_name = 'weather_lookups' AND constraint_type = 'FOREIGN KEY'

@@ -47,7 +47,7 @@ function Router() {
     // 2. Check active Supabase session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        fetchProfile(session.user.id);
+        syncOrFetchProfile(session.user.id, session.user.email || undefined, session.user.user_metadata || {});
       } else {
         setIsLoading(false);
       }
@@ -57,7 +57,7 @@ function Router() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        fetchProfile(session.user.id);
+        syncOrFetchProfile(session.user.id, session.user.email || undefined, session.user.user_metadata || {});
       } else if (!localStorage.getItem('farmwise-farmer')) {
         setFarmer(null);
         setIsLoading(false);
@@ -67,7 +67,7 @@ function Router() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchProfile = async (userId: string) => {
+  const syncOrFetchProfile = async (userId: string, email?: string, metadata: Record<string, any> = {}) => {
     try {
       const response = await fetch(`/api/farmers/${userId}`);
       if (response.ok) {
@@ -76,11 +76,51 @@ function Router() {
         setFarmer(farmerObj);
         localStorage.setItem('farmwise-farmer', JSON.stringify(farmerObj));
       } else {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.user_metadata) {
-          const farmerObj = { id: user.id, ...user.user_metadata };
-          setFarmer(farmerObj);
-          localStorage.setItem('farmwise-farmer', JSON.stringify(farmerObj));
+        const savedFarmerStr = localStorage.getItem('farmwise-farmer');
+        let savedFarmer = null;
+        if (savedFarmerStr) {
+          try {
+            savedFarmer = JSON.parse(savedFarmerStr);
+          } catch (parseError) {
+            console.warn('Could not parse saved farmer profile', parseError);
+          }
+        }
+        const profileSource = savedFarmer || {
+          name: metadata.name || metadata.full_name || 'Farmer',
+          phone: metadata.phone || metadata.phone_number || '',
+          email: email || metadata.email || '',
+          state: metadata.state || '',
+          district: metadata.district || '',
+          language: metadata.language || 'en'
+        };
+
+        if (profileSource?.phone && profileSource?.state && profileSource?.district) {
+          const syncResponse = await fetch('/api/farmers/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: userId,
+              sourceFarmerId: savedFarmer?.id,
+              name: profileSource.name,
+              phone: profileSource.phone,
+              email: profileSource.email,
+              state: profileSource.state,
+              district: profileSource.district,
+              language: profileSource.language || 'en'
+            })
+          });
+
+          if (syncResponse.ok) {
+            const syncResult = await syncResponse.json();
+            const farmerObj = syncResult.farmer;
+            setFarmer(farmerObj);
+            localStorage.setItem('farmwise-farmer', JSON.stringify(farmerObj));
+          } else if (savedFarmer) {
+            setFarmer(savedFarmer);
+          }
+        } else if (savedFarmer) {
+          setFarmer(savedFarmer);
+          localStorage.setItem('farmwise-farmer', JSON.stringify(savedFarmer));
         }
       }
     } catch (e) {

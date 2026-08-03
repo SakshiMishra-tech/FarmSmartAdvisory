@@ -1,7 +1,7 @@
 import { type Farmer, type InsertFarmer, type CropPrediction, type InsertCropPrediction, type YieldPrediction, type InsertYieldPrediction, type SoilData, type VoiceConversation, type InsertVoiceConversation, type CalamityPrediction, type InsertCalamityPrediction, type SoilHealthReport, type InsertSoilHealthReport, type WeatherLookup, type InsertWeatherLookup } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import * as schema from "@shared/schema";
 
 export interface IStorage {
@@ -11,6 +11,7 @@ export interface IStorage {
   getFarmerByEmail(email: string): Promise<Farmer | undefined>;
   createFarmer(farmer: InsertFarmer & { id?: string }): Promise<Farmer>;
   updateFarmer(id: string, farmer: Partial<InsertFarmer>): Promise<Farmer>;
+  syncFarmerProfile(farmer: InsertFarmer & { id: string }, previousFarmerId?: string): Promise<Farmer>;
   deleteFarmer(id: string): Promise<boolean>;
   deleteFarmerByPhone(phone: string): Promise<boolean>;
   
@@ -75,6 +76,70 @@ export class DatabaseStorage implements IStorage {
   async updateFarmer(id: string, updateData: Partial<InsertFarmer>): Promise<Farmer> {
     const [farmer] = await db.update(schema.farmers).set(updateData).where(eq(schema.farmers.id, id)).returning();
     return (farmer as unknown) as Farmer;
+  }
+
+  async syncFarmerProfile(farmerInput: InsertFarmer & { id: string }, previousFarmerId?: string): Promise<Farmer> {
+    const timestamp = new Date();
+    const targetId = farmerInput.id;
+    const sourceId = previousFarmerId && previousFarmerId !== targetId ? previousFarmerId : null;
+
+    return db.transaction(async (tx) => {
+      const [sourceFarmer] = sourceId
+        ? await tx.select().from(schema.farmers).where(eq(schema.farmers.id, sourceId))
+        : [];
+      const [targetFarmer] = await tx.select().from(schema.farmers).where(eq(schema.farmers.id, targetId));
+
+      const mutableFields = {
+        name: farmerInput.name,
+        phone: farmerInput.phone,
+        email: farmerInput.email ?? null,
+        state: farmerInput.state,
+        district: farmerInput.district,
+        language: farmerInput.language ?? "en",
+        updatedAt: timestamp,
+      };
+
+      if (sourceFarmer && targetFarmer && sourceFarmer.id !== targetFarmer.id) {
+        await this.reassignFarmerReferences(tx, sourceFarmer.id, targetFarmer.id);
+        const [updatedTarget] = await tx.update(schema.farmers).set(mutableFields).where(eq(schema.farmers.id, targetFarmer.id)).returning();
+        await tx.delete(schema.farmers).where(eq(schema.farmers.id, sourceFarmer.id));
+        return (updatedTarget as unknown) as Farmer;
+      }
+
+      if (sourceFarmer && sourceFarmer.id !== targetId) {
+        await this.reassignFarmerReferences(tx, sourceFarmer.id, targetId);
+        const [migratedFarmer] = await tx.update(schema.farmers)
+          .set({ ...mutableFields, id: targetId, createdAt: sourceFarmer.createdAt, updatedAt: timestamp })
+          .where(eq(schema.farmers.id, sourceFarmer.id))
+          .returning();
+        return (migratedFarmer as unknown) as Farmer;
+      }
+
+      if (targetFarmer) {
+        const [updatedFarmer] = await tx.update(schema.farmers).set(mutableFields).where(eq(schema.farmers.id, targetId)).returning();
+        return (updatedFarmer as unknown) as Farmer;
+      }
+
+      const [createdFarmer] = await tx.insert(schema.farmers).values({
+        ...mutableFields,
+        id: targetId,
+        createdAt: timestamp,
+      }).returning();
+
+      return (createdFarmer as unknown) as Farmer;
+    });
+  }
+
+  private async reassignFarmerReferences(tx: any, oldFarmerId: string, newFarmerId: string) {
+    await Promise.all([
+      tx.update(schema.cropPredictions).set({ farmerId: newFarmerId }).where(eq(schema.cropPredictions.farmerId, oldFarmerId)),
+      tx.update(schema.yieldPredictions).set({ farmerId: newFarmerId }).where(eq(schema.yieldPredictions.farmerId, oldFarmerId)),
+      tx.update(schema.voiceConversations).set({ farmerId: newFarmerId }).where(eq(schema.voiceConversations.farmerId, oldFarmerId)),
+      tx.update(schema.calamityPredictions).set({ farmerId: newFarmerId }).where(eq(schema.calamityPredictions.farmerId, oldFarmerId)),
+      tx.update(schema.soilHealthReports).set({ farmerId: newFarmerId }).where(eq(schema.soilHealthReports.farmerId, oldFarmerId)),
+      tx.update(schema.weatherLookups).set({ farmerId: newFarmerId }).where(eq(schema.weatherLookups.farmerId, oldFarmerId)),
+      tx.update(schema.loginHistory).set({ userId: newFarmerId }).where(eq(schema.loginHistory.userId, oldFarmerId)),
+    ]);
   }
 
   async getSoilDataByDistrict(district: string): Promise<SoilData | undefined> {
@@ -158,22 +223,22 @@ export class DatabaseStorage implements IStorage {
   async deleteHistoryItem(farmerId: string, type: string, id: string): Promise<void> {
     switch (type) {
       case 'crop':
-        await db.delete(schema.cropPredictions).where(eq(schema.cropPredictions.id, id));
+        await db.delete(schema.cropPredictions).where(and(eq(schema.cropPredictions.id, id), eq(schema.cropPredictions.farmerId, farmerId)));
         break;
       case 'yield':
-        await db.delete(schema.yieldPredictions).where(eq(schema.yieldPredictions.id, id));
+        await db.delete(schema.yieldPredictions).where(and(eq(schema.yieldPredictions.id, id), eq(schema.yieldPredictions.farmerId, farmerId)));
         break;
       case 'voice':
-        await db.delete(schema.voiceConversations).where(eq(schema.voiceConversations.id, id));
+        await db.delete(schema.voiceConversations).where(and(eq(schema.voiceConversations.id, id), eq(schema.voiceConversations.farmerId, farmerId)));
         break;
       case 'calamity':
-        await db.delete(schema.calamityPredictions).where(eq(schema.calamityPredictions.id, id));
+        await db.delete(schema.calamityPredictions).where(and(eq(schema.calamityPredictions.id, id), eq(schema.calamityPredictions.farmerId, farmerId)));
         break;
       case 'weather':
-        await db.delete(schema.weatherLookups).where(eq(schema.weatherLookups.id, id));
+        await db.delete(schema.weatherLookups).where(and(eq(schema.weatherLookups.id, id), eq(schema.weatherLookups.farmerId, farmerId)));
         break;
       case 'soil':
-        await db.delete(schema.soilHealthReports).where(eq(schema.soilHealthReports.id, id));
+        await db.delete(schema.soilHealthReports).where(and(eq(schema.soilHealthReports.id, id), eq(schema.soilHealthReports.farmerId, farmerId)));
         break;
     }
   }
@@ -204,14 +269,6 @@ export class DatabaseStorage implements IStorage {
 
   async deleteFarmer(id: string): Promise<boolean> {
     try {
-      await db.delete(schema.cropPredictions).where(eq(schema.cropPredictions.farmerId, id));
-      await db.delete(schema.yieldPredictions).where(eq(schema.yieldPredictions.farmerId, id));
-      await db.delete(schema.calamityPredictions).where(eq(schema.calamityPredictions.farmerId, id));
-      await db.delete(schema.voiceConversations).where(eq(schema.voiceConversations.farmerId, id));
-      await db.delete(schema.soilHealthReports).where(eq(schema.soilHealthReports.farmerId, id));
-      await db.delete(schema.weatherLookups).where(eq(schema.weatherLookups.farmerId, id));
-      await db.delete(schema.loginHistory).where(eq(schema.loginHistory.userId, id));
-      
       const result = await db.delete(schema.farmers).where(eq(schema.farmers.id, id)).returning();
       return result.length > 0;
     } catch (error) {

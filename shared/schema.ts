@@ -15,7 +15,7 @@ export const farmers = pgTable("profiles", {
 
 export const cropPredictions = pgTable("crop_predictions", {
   id: uuid("id").primaryKey(),
-  farmerId: uuid("farmer_id").references(() => farmers.id).notNull(),
+  farmerId: uuid("farmer_id").references(() => farmers.id, { onDelete: "cascade" }).notNull(),
   crop: text("crop").notNull(),
   confidence: real("confidence").notNull(),
   soilData: json("soil_data").notNull(),
@@ -26,7 +26,7 @@ export const cropPredictions = pgTable("crop_predictions", {
 
 export const yieldPredictions = pgTable("yield_predictions", {
   id: uuid("id").primaryKey(),
-  farmerId: uuid("farmer_id").references(() => farmers.id).notNull(),
+  farmerId: uuid("farmer_id").references(() => farmers.id, { onDelete: "cascade" }).notNull(),
   crop: text("crop").notNull(),
   season: text("season").notNull(),
   area: real("area").notNull(),
@@ -38,7 +38,7 @@ export const yieldPredictions = pgTable("yield_predictions", {
 
 export const voiceConversations = pgTable("voice_conversations", {
   id: uuid("id").primaryKey(),
-  farmerId: uuid("farmer_id").references(() => farmers.id).notNull(),
+  farmerId: uuid("farmer_id").references(() => farmers.id, { onDelete: "cascade" }).notNull(),
   query: text("query").notNull(),
   response: text("response").notNull(),
   language: text("language").notNull(),
@@ -47,7 +47,7 @@ export const voiceConversations = pgTable("voice_conversations", {
 
 export const calamityPredictions = pgTable("calamity_predictions", {
   id: uuid("id").primaryKey(),
-  farmerId: uuid("farmer_id").references(() => farmers.id).notNull(),
+  farmerId: uuid("farmer_id").references(() => farmers.id, { onDelete: "cascade" }).notNull(),
   crop: text("crop").notNull(),
   overallRisk: text("overall_risk").notNull(),
   riskScore: real("risk_score").notNull(),
@@ -58,7 +58,7 @@ export const calamityPredictions = pgTable("calamity_predictions", {
 
 export const soilHealthReports = pgTable("soil_health_reports", {
   id: uuid("id").primaryKey(),
-  farmerId: uuid("farmer_id").references(() => farmers.id).notNull(),
+  farmerId: uuid("farmer_id").references(() => farmers.id, { onDelete: "cascade" }).notNull(),
   n: real("n").notNull(),
   p: real("p").notNull(),
   k: real("k").notNull(),
@@ -70,7 +70,7 @@ export const soilHealthReports = pgTable("soil_health_reports", {
 
 export const weatherLookups = pgTable("weather_lookups", {
   id: uuid("id").primaryKey(),
-  farmerId: uuid("farmer_id").references(() => farmers.id).notNull(),
+  farmerId: uuid("farmer_id").references(() => farmers.id, { onDelete: "cascade" }).notNull(),
   temperature: real("temperature").notNull(),
   humidity: real("humidity").notNull(),
   rainfall: real("rainfall").notNull(),
@@ -80,7 +80,7 @@ export const weatherLookups = pgTable("weather_lookups", {
 
 export const loginHistory = pgTable("login_history", {
   id: uuid("id").primaryKey(),
-  userId: uuid("user_id").references(() => farmers.id).notNull(),
+  userId: uuid("user_id").references(() => farmers.id, { onDelete: "cascade" }).notNull(),
   phone: text("phone"),
   loginMethod: text("login_method").default("Normal Login"),
   loginTime: timestamp("login_time").defaultNow().notNull(),
@@ -113,7 +113,7 @@ export const farmerSchema = z.object({
   id: z.string(),
   name: z.string().min(1, "Name is required"),
   phone: z.string().min(10, "Valid phone number required"),
-  email: z.string().email().optional(),
+  email: z.string().email().optional().nullable(),
   state: z.string().min(1, "State is required"),
   district: z.string().min(1, "District is required"),
   language: z.string().default("en"),

@@ -6,10 +6,41 @@ import { insertFarmerSchema, insertCropPredictionSchema, insertYieldPredictionSc
 import path from "path";
 import { handleClearConversations, handleGetConversations, handleVoiceQuery } from "./voice-assistant";
 import { GoogleGenAI } from "@google/genai";
+import { createClient } from "@supabase/supabase-js";
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY || "",
 });
+
+const supabaseAdminClient = (() => {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return null;
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+})();
+
+async function deleteSupabaseUser(userId?: string) {
+  if (!supabaseAdminClient || !userId) {
+    return false;
+  }
+
+  const { error } = await supabaseAdminClient.auth.admin.deleteUser(userId);
+  if (error) {
+    console.warn('Supabase auth delete failed:', error.message);
+    return false;
+  }
+
+  return true;
+}
 
 // JavaScript ML service inline implementation
 class MLService {
@@ -545,7 +576,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Farmer authentication routes
   app.post('/api/farmers/login', async (req, res) => {
     try {
-      const { phone, email, name, state, district, language } = req.body;
+      const { phone, email, name, state, district, language, id: requestedFarmerId, sourceFarmerId } = req.body;
       
       const cleanPhone = phone ? phone.replace(/\D/g, '') : '';
       if (!cleanPhone || cleanPhone.length < 10) {
@@ -555,21 +586,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const normalizedState = state ? state.toLowerCase() : state;
       const cleanEmail = email && email.trim() !== '' ? email.trim().toLowerCase() : null;
       
+      const farmerData = insertFarmerSchema.parse({
+        name: name || 'Farmer',
+        phone: cleanPhone,
+        email: cleanEmail,
+        state: normalizedState,
+        district: district,
+        language: language || 'en'
+      });
+
       let farmer = await storage.getFarmerByPhone(cleanPhone);
-      
-      if (!farmer) {
-        // Create new farmer profile
-        const farmerData = insertFarmerSchema.parse({
-          name: name || 'Farmer',
-          phone: cleanPhone,
-          email: cleanEmail,
-          state: normalizedState,
-          district: district,
-          language: language || 'en'
-        });
+      const targetFarmerId = typeof requestedFarmerId === 'string' && requestedFarmerId.trim() ? requestedFarmerId.trim() : farmer?.id;
+
+      if (targetFarmerId && targetFarmerId !== farmer?.id) {
+        farmer = await storage.syncFarmerProfile({ ...farmerData, id: targetFarmerId }, sourceFarmerId || farmer?.id);
+      } else if (!farmer) {
         farmer = await storage.createFarmer(farmerData);
       } else {
-        // Update existing farmer profile (keep original state fixed for account consistency, allow updating district, name, email, language)
         farmer = await storage.updateFarmer(farmer.id, {
           name: name || farmer.name,
           email: cleanEmail !== null ? cleanEmail : farmer.email,
@@ -629,12 +662,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Sync a local profile to a Supabase auth user id, migrating all dependent history rows when needed.
+  app.post('/api/farmers/sync', async (req, res) => {
+    try {
+      const { id, sourceFarmerId, phone, email, name, state, district, language } = req.body;
+      const targetFarmerId = typeof id === 'string' && id.trim() ? id.trim() : '';
+      if (!targetFarmerId) {
+        return res.status(400).json({ success: false, error: 'Profile id is required' });
+      }
+
+      const cleanPhone = phone ? phone.replace(/\D/g, '') : '';
+      if (!cleanPhone || cleanPhone.length < 10) {
+        return res.status(400).json({ success: false, error: 'Valid 10-digit phone number is required' });
+      }
+
+      const farmerData = insertFarmerSchema.parse({
+        name: name || 'Farmer',
+        phone: cleanPhone,
+        email: email && email.trim() !== '' ? email.trim().toLowerCase() : null,
+        state: state ? state.toLowerCase() : state,
+        district: district,
+        language: language || 'en'
+      });
+
+      const farmer = await storage.syncFarmerProfile({ ...farmerData, id: targetFarmerId }, sourceFarmerId || undefined);
+      res.json({ success: true, farmer });
+    } catch (error: any) {
+      console.error('Profile sync error:', error);
+      res.status(400).json({ success: false, error: error.message });
+    }
+  });
+
   // Delete farmer account profile and all user data from PostgreSQL / Supabase
   app.delete('/api/farmers/:id', async (req, res) => {
     try {
       const farmerId = req.params.id;
       const success = await storage.deleteFarmer(farmerId);
       if (success) {
+        // Run Supabase Auth delete in the background so it doesn't block client response
+        deleteSupabaseUser(farmerId).catch(err => console.error("Error deleting user from Supabase auth:", err));
         res.json({ success: true, message: 'Farmer profile and all associated data deleted successfully' });
       } else {
         res.status(404).json({ success: false, error: 'Farmer profile not found or already deleted' });
@@ -649,8 +715,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/farmers/phone/:phone', async (req, res) => {
     try {
       const cleanPhone = req.params.phone.replace(/\D/g, '');
+      const farmer = await storage.getFarmerByPhone(cleanPhone);
       const success = await storage.deleteFarmerByPhone(cleanPhone);
       if (success) {
+        // Run Supabase Auth delete in the background so it doesn't block client response
+        if (farmer?.id) {
+          deleteSupabaseUser(farmer.id).catch(err => console.error("Error deleting user from Supabase auth:", err));
+        }
         res.json({ success: true, message: 'Farmer account deleted successfully by phone number' });
       } else {
         res.status(404).json({ success: false, error: 'Farmer account not found for this phone number' });
