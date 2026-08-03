@@ -1,15 +1,15 @@
 import { type Farmer, type InsertFarmer, type CropPrediction, type InsertCropPrediction, type YieldPrediction, type InsertYieldPrediction, type SoilData, type VoiceConversation, type InsertVoiceConversation, type CalamityPrediction, type InsertCalamityPrediction, type SoilHealthReport, type InsertSoilHealthReport, type WeatherLookup, type InsertWeatherLookup } from "@shared/schema";
 import { randomUUID } from "crypto";
-import fs from 'fs/promises';
-import path from 'path';
-
-const DATA_DIR = path.join(process.cwd(), 'server', 'data');
+import { db } from "./db";
+import { eq } from "drizzle-orm";
+import * as schema from "@shared/schema";
 
 export interface IStorage {
   // Farmer operations
   getFarmer(id: string): Promise<Farmer | undefined>;
   getFarmerByPhone(phone: string): Promise<Farmer | undefined>;
-  createFarmer(farmer: InsertFarmer): Promise<Farmer>;
+  getFarmerByEmail(email: string): Promise<Farmer | undefined>;
+  createFarmer(farmer: InsertFarmer & { id?: string }): Promise<Farmer>;
   updateFarmer(id: string, farmer: Partial<InsertFarmer>): Promise<Farmer>;
   
   // Soil data operations
@@ -44,281 +44,6 @@ export interface IStorage {
   deleteHistoryItem(farmerId: string, type: string, id: string): Promise<void>;
 }
 
-export class MemStorage implements IStorage {
-  private farmers: Map<string, Farmer> = new Map();
-  private cropPredictions: Map<string, CropPrediction[]> = new Map();
-  private yieldPredictions: Map<string, YieldPrediction[]> = new Map();
-  private soilData: Map<string, SoilData> = new Map();
-  private voiceConversations: Map<string, VoiceConversation[]> = new Map();
-
-  constructor() {
-    this.loadData();
-  }
-
-  private async loadData() {
-    try {
-      // Load farmers
-      const farmersData = await this.readJsonFile('farmers.json');
-      if (farmersData) {
-        farmersData.forEach((farmer: Farmer) => {
-          this.farmers.set(farmer.id, farmer);
-        });
-      }
-
-      // Load soil data
-      const soilDataArray = await this.readJsonFile('soil_data.json');
-      if (soilDataArray) {
-        soilDataArray.forEach((soil: SoilData) => {
-          this.soilData.set(soil.district.toLowerCase(), soil);
-        });
-      }
-
-      // Load predictions
-      const predictionsData = await this.readJsonFile('predictions.json');
-      if (predictionsData) {
-        predictionsData.cropPredictions?.forEach((prediction: CropPrediction) => {
-          if (!this.cropPredictions.has(prediction.farmerId)) {
-            this.cropPredictions.set(prediction.farmerId, []);
-          }
-          this.cropPredictions.get(prediction.farmerId)!.push(prediction);
-        });
-
-        predictionsData.yieldPredictions?.forEach((prediction: YieldPrediction) => {
-          if (!this.yieldPredictions.has(prediction.farmerId)) {
-            this.yieldPredictions.set(prediction.farmerId, []);
-          }
-          this.yieldPredictions.get(prediction.farmerId)!.push(prediction);
-        });
-      }
-
-      // Load voice conversations
-      const voiceData = await this.readJsonFile('voice_conversations.json');
-      if (voiceData) {
-        voiceData.forEach((conv: VoiceConversation) => {
-          if (!this.voiceConversations.has(conv.farmerId)) {
-            this.voiceConversations.set(conv.farmerId, []);
-          }
-          this.voiceConversations.get(conv.farmerId)!.push(conv);
-        });
-      }
-    } catch (error) {
-      console.log('No existing data files found, starting fresh');
-    }
-  }
-
-  private async readJsonFile(filename: string) {
-    try {
-      const filePath = path.join(DATA_DIR, filename);
-      const data = await fs.readFile(filePath, 'utf-8');
-      return JSON.parse(data);
-    } catch (error) {
-      return null;
-    }
-  }
-
-  private async saveData() {
-    try {
-      await fs.mkdir(DATA_DIR, { recursive: true });
-
-      // Save farmers
-      const farmersArray = Array.from(this.farmers.values());
-      await fs.writeFile(
-        path.join(DATA_DIR, 'farmers.json'),
-        JSON.stringify(farmersArray, null, 2)
-      );
-
-      // Save predictions
-      const cropPredictionsArray: CropPrediction[] = [];
-      const yieldPredictionsArray: YieldPrediction[] = [];
-
-      this.cropPredictions.forEach(predictions => {
-        cropPredictionsArray.push(...predictions);
-      });
-
-      this.yieldPredictions.forEach(predictions => {
-        yieldPredictionsArray.push(...predictions);
-      });
-
-      await fs.writeFile(
-        path.join(DATA_DIR, 'predictions.json'),
-        JSON.stringify({
-          cropPredictions: cropPredictionsArray,
-          yieldPredictions: yieldPredictionsArray
-        }, null, 2)
-      );
-
-      // Save voice conversations
-      const voiceArray: VoiceConversation[] = [];
-      this.voiceConversations.forEach(convs => voiceArray.push(...convs));
-      await fs.writeFile(
-        path.join(DATA_DIR, 'voice_conversations.json'),
-        JSON.stringify(voiceArray, null, 2)
-      );
-    } catch (error) {
-      console.error('Error saving data:', error);
-    }
-  }
-
-  async getFarmer(id: string): Promise<Farmer | undefined> {
-    return this.farmers.get(id);
-  }
-
-  async getFarmerByPhone(phone: string): Promise<Farmer | undefined> {
-    return Array.from(this.farmers.values()).find(farmer => farmer.phone === phone);
-  }
-
-  async createFarmer(insertFarmer: InsertFarmer): Promise<Farmer> {
-    const id = randomUUID();
-    const farmer: Farmer = {
-      ...insertFarmer,
-      id,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    this.farmers.set(id, farmer);
-    await this.saveData();
-    return farmer;
-  }
-
-  async updateFarmer(id: string, updateData: Partial<InsertFarmer>): Promise<Farmer> {
-    const farmer = this.farmers.get(id);
-    if (!farmer) {
-      throw new Error('Farmer not found');
-    }
-
-    const updatedFarmer: Farmer = {
-      ...farmer,
-      ...updateData,
-      updatedAt: new Date()
-    };
-
-    this.farmers.set(id, updatedFarmer);
-    await this.saveData();
-    return updatedFarmer;
-  }
-
-  async getSoilDataByDistrict(district: string): Promise<SoilData | undefined> {
-    return this.soilData.get(district.toLowerCase());
-  }
-
-  async getCropPredictions(farmerId: string): Promise<CropPrediction[]> {
-    return this.cropPredictions.get(farmerId) || [];
-  }
-
-  async createCropPrediction(insertPrediction: InsertCropPrediction): Promise<CropPrediction> {
-    const id = randomUUID();
-    const prediction: CropPrediction = {
-      ...insertPrediction,
-      id,
-      createdAt: new Date()
-    };
-
-    if (!this.cropPredictions.has(prediction.farmerId)) {
-      this.cropPredictions.set(prediction.farmerId, []);
-    }
-    this.cropPredictions.get(prediction.farmerId)!.push(prediction);
-    await this.saveData();
-    return prediction;
-  }
-
-  async getYieldPredictions(farmerId: string): Promise<YieldPrediction[]> {
-    return this.yieldPredictions.get(farmerId) || [];
-  }
-
-  async createYieldPrediction(insertPrediction: InsertYieldPrediction): Promise<YieldPrediction> {
-    const id = randomUUID();
-    const prediction: YieldPrediction = {
-      ...insertPrediction,
-      id,
-      createdAt: new Date()
-    };
-
-    if (!this.yieldPredictions.has(prediction.farmerId)) {
-      this.yieldPredictions.set(prediction.farmerId, []);
-    }
-    this.yieldPredictions.get(prediction.farmerId)!.push(prediction);
-    await this.saveData();
-    return prediction;
-  }
-
-  async getVoiceConversations(farmerId: string): Promise<VoiceConversation[]> {
-    return this.voiceConversations.get(farmerId) || [];
-  }
-
-  async createVoiceConversation(insertConv: InsertVoiceConversation): Promise<VoiceConversation> {
-    const id = randomUUID();
-    const conv: VoiceConversation = {
-      ...insertConv,
-      id,
-      createdAt: new Date()
-    };
-    if (!this.voiceConversations.has(conv.farmerId)) {
-      this.voiceConversations.set(conv.farmerId, []);
-    }
-    this.voiceConversations.get(conv.farmerId)!.push(conv);
-    await this.saveData();
-    return conv;
-  }
-
-  async clearVoiceConversations(farmerId: string): Promise<void> {
-    this.voiceConversations.delete(farmerId);
-    await this.saveData();
-  }
-
-  async getCalamityPredictions(farmerId: string): Promise<CalamityPrediction[]> {
-    return []; // MemStorage isn't used for new tables beyond basic save returning
-  }
-
-  async createCalamityPrediction(insertPrediction: InsertCalamityPrediction): Promise<CalamityPrediction> {
-    const id = randomUUID();
-    return { ...insertPrediction, id, createdAt: new Date() };
-  }
-
-  async getSoilHealthReports(farmerId: string): Promise<SoilHealthReport[]> {
-    return [];
-  }
-
-  async createSoilHealthReport(insertReport: InsertSoilHealthReport): Promise<SoilHealthReport> {
-    const id = randomUUID();
-    return { ...insertReport, id, createdAt: new Date() };
-  }
-
-  async getWeatherLookups(farmerId: string): Promise<WeatherLookup[]> {
-    return [];
-  }
-
-  async createWeatherLookup(insertLookup: InsertWeatherLookup): Promise<WeatherLookup> {
-    const id = randomUUID();
-    return { ...insertLookup, id, createdAt: new Date() };
-  }
-
-  async deleteHistoryItem(farmerId: string, type: string, id: string): Promise<void> {
-    switch (type) {
-      case 'crop':
-        if (this.cropPredictions.has(farmerId)) {
-          this.cropPredictions.set(farmerId, this.cropPredictions.get(farmerId)!.filter(p => p.id !== id));
-        }
-        break;
-      case 'yield':
-        if (this.yieldPredictions.has(farmerId)) {
-          this.yieldPredictions.set(farmerId, this.yieldPredictions.get(farmerId)!.filter(p => p.id !== id));
-        }
-        break;
-      case 'voice':
-        if (this.voiceConversations.has(farmerId)) {
-          this.voiceConversations.set(farmerId, this.voiceConversations.get(farmerId)!.filter(p => p.id !== id));
-        }
-        break;
-      // Calamity, Weather, Soil Health not persisted in MemStorage fully, but ignoring for now
-    }
-    await this.saveData();
-  }
-}
-
-import { db } from "./db";
-import { eq } from "drizzle-orm";
-import * as schema from "@shared/schema";
-
 export class DatabaseStorage implements IStorage {
   async getFarmer(id: string): Promise<Farmer | undefined> {
     const [farmer] = await db.select().from(schema.farmers).where(eq(schema.farmers.id, id));
@@ -330,8 +55,14 @@ export class DatabaseStorage implements IStorage {
     return (farmer as unknown) as Farmer | undefined;
   }
 
-  async createFarmer(insertFarmer: InsertFarmer): Promise<Farmer> {
-    const [farmer] = await db.insert(schema.farmers).values({ ...insertFarmer, id: randomUUID() }).returning();
+  async getFarmerByEmail(email: string): Promise<Farmer | undefined> {
+    const [farmer] = await db.select().from(schema.farmers).where(eq(schema.farmers.email, email));
+    return (farmer as unknown) as Farmer | undefined;
+  }
+
+  async createFarmer(insertFarmer: InsertFarmer & { id?: string }): Promise<Farmer> {
+    const id = insertFarmer.id || randomUUID();
+    const [farmer] = await db.insert(schema.farmers).values({ ...insertFarmer, id }).returning();
     return (farmer as unknown) as Farmer;
   }
 
@@ -442,5 +173,8 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-// Ensure DATABASE_URL is set to use true DatabaseStorage, else fallback to MemStorage
-export const storage = process.env.DATABASE_URL ? new DatabaseStorage() : new MemStorage();
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL is strictly required for this application to run. Fallback storage has been removed as per strict architectural guidelines.");
+}
+
+export const storage = new DatabaseStorage();

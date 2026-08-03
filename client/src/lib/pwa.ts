@@ -1,8 +1,8 @@
 let deferredPrompt: any;
 
 export const setupPWA = () => {
-  // Register service worker
-  if ('serviceWorker' in navigator) {
+  // Only register service worker in production
+  if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js')
         .then((registration) => {
@@ -12,7 +12,16 @@ export const setupPWA = () => {
           console.log('SW registration failed: ', registrationError);
         });
     });
+  } else if (!import.meta.env.PROD && 'serviceWorker' in navigator) {
+    // Unregister any existing service workers in development to prevent caching issues
+    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+      for(let registration of registrations) {
+        registration.unregister();
+        console.log('SW unregistered for development to prevent caching issues');
+      }
+    });
   }
+
 
   // Handle install prompt
   window.addEventListener('beforeinstallprompt', (e) => {

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { pgTable, text, timestamp, integer, real, json, uuid } from "drizzle-orm/pg-core";
 
-export const farmers = pgTable("farmers", {
+export const farmers = pgTable("profiles", {
   id: uuid("id").primaryKey(),
   name: text("name").notNull(),
   phone: text("phone").notNull().unique(),

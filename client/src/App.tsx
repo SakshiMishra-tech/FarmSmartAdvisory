@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -9,36 +9,85 @@ import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
 import NotFound from "@/pages/not-found";
 import i18n from "@/lib/i18n";
+import { supabase } from "@/lib/supabase";
+import { useSessionManager } from "@/hooks/use-session";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 function Router() {
   const [farmer, setFarmer] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [, setLocation] = useLocation();
+
+  const { showWarning, stayLoggedIn, handleLogout } = useSessionManager(() => {
+    setFarmer(null);
+    setLocation("/");
+  });
 
   useEffect(() => {
     const savedLanguage = localStorage.getItem('farmwise-language');
     if (savedLanguage && ['en', 'hi', 'od'].includes(savedLanguage)) {
       i18n.changeLanguage(savedLanguage);
-    } else if (savedLanguage) {
-      localStorage.removeItem('farmwise-language');
     }
 
-    // Check for stored farmer data
-    const storedFarmer = localStorage.getItem('farmwise-farmer');
-    if (storedFarmer) {
+    // 1. Check local storage session first
+    const savedFarmerStr = localStorage.getItem('farmwise-farmer');
+    if (savedFarmerStr) {
       try {
-        const parsedFarmer = JSON.parse(storedFarmer);
-        if (!['en', 'hi', 'od'].includes(parsedFarmer.language)) {
-          parsedFarmer.language = localStorage.getItem('farmwise-language') || 'en';
-          localStorage.setItem('farmwise-farmer', JSON.stringify(parsedFarmer));
+        const savedFarmer = JSON.parse(savedFarmerStr);
+        if (savedFarmer && savedFarmer.id) {
+          setFarmer(savedFarmer);
         }
-        setFarmer(parsedFarmer);
-      } catch (error) {
-        console.error('Error parsing stored farmer data:', error);
-        localStorage.removeItem('farmwise-farmer');
+      } catch (e) {
+        console.error("Error parsing saved farmer session", e);
       }
     }
-    setIsLoading(false);
+
+    // 2. Check active Supabase session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        fetchProfile(session.user.id);
+      } else {
+        setIsLoading(false);
+      }
+    }).catch(() => {
+      setIsLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        fetchProfile(session.user.id);
+      } else if (!localStorage.getItem('farmwise-farmer')) {
+        setFarmer(null);
+        setIsLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  const fetchProfile = async (userId: string) => {
+    try {
+      const response = await fetch(`/api/farmers/${userId}`);
+      if (response.ok) {
+        const data = await response.json();
+        const farmerObj = data.farmer || data;
+        setFarmer(farmerObj);
+        localStorage.setItem('farmwise-farmer', JSON.stringify(farmerObj));
+      } else {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.user_metadata) {
+          const farmerObj = { id: user.id, ...user.user_metadata };
+          setFarmer(farmerObj);
+          localStorage.setItem('farmwise-farmer', JSON.stringify(farmerObj));
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -52,16 +101,34 @@ function Router() {
   }
 
   return (
-    <Switch>
-      <Route path="/">
-        {farmer ? (
-          <Dashboard farmer={farmer} onLogout={() => setFarmer(null)} />
-        ) : (
-          <Landing onLogin={setFarmer} />
-        )}
-      </Route>
-      <Route component={NotFound} />
-    </Switch>
+    <>
+      <Switch>
+        <Route path="/">
+          {farmer ? (
+            <Dashboard farmer={farmer} onLogout={handleLogout} />
+          ) : (
+            <Landing onLogin={setFarmer} />
+          )}
+        </Route>
+        <Route component={NotFound} />
+      </Switch>
+
+      {/* Session Warning Modal */}
+      <Dialog open={showWarning} onOpenChange={stayLoggedIn}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Session Expiring Soon</DialogTitle>
+            <DialogDescription>
+              Your session will expire in 5 minutes due to inactivity. Do you want to stay logged in?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleLogout}>Logout</Button>
+            <Button onClick={stayLoggedIn}>Stay Logged In</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

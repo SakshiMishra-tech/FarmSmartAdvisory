@@ -4,8 +4,12 @@ import { GoogleGenAI } from "@google/genai";
 import { languages } from "@shared/schema";
 
 // Initialize Gemini client (will use process.env.GEMINI_API_KEY by default)
-const ai = new GoogleGenAI({});
+console.log("Gemini Key Loaded:", !!process.env.GEMINI_API_KEY);
+console.log("Gemini Key Prefix:", process.env.GEMINI_API_KEY?.substring(0, 10));
 
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY!,
+});
 type VoiceQueryBody = {
   query: string;
   language?: string;
@@ -39,11 +43,11 @@ export async function handleVoiceQuery(req: Request, res: Response) {
   try {
     // Determine the language name for prompting
     const langObj = languages.find(l => l.code === detectedLanguage) || languages[0];
-    
+
     // Fetch previous conversation history for this farmer to provide context
     const history = await storage.getVoiceConversations(farmerId);
     const recentHistory = history.slice(-5); // Keep last 5 for context window limits
-    
+
     let contextStr = "";
     if (recentHistory.length > 0) {
       contextStr = "Previous conversation context:\n";
@@ -56,12 +60,12 @@ export async function handleVoiceQuery(req: Request, res: Response) {
 
     // Call Gemini
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-            systemInstruction: SYSTEM_INSTRUCTION,
-            temperature: 0.3,
-        }
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        systemInstruction: SYSTEM_INSTRUCTION,
+        temperature: 0.3,
+      }
     });
 
     const responseText = response.text || "I'm sorry, I couldn't generate a response at this time.";
@@ -81,11 +85,11 @@ export async function handleVoiceQuery(req: Request, res: Response) {
     });
   } catch (error: any) {
     console.error("Error calling Gemini API:", error);
-    
+
     // Check if it's an API key error
     if (error.message?.includes('API key') || !process.env.GEMINI_API_KEY) {
       const fallbackMsg = "Step 1\nPlease configure the GEMINI_API_KEY environment variable.\nStep 2\nRestart the server to enable intelligent voice assistance.";
-      
+
       await storage.createVoiceConversation({
         farmerId,
         query,

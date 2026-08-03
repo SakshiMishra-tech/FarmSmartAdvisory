@@ -98,6 +98,8 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand, language: ap
     }
   };
 
+  const [isGenerating, setIsGenerating] = useState(false);
+
   const handleTypedQuery = async (e: React.FormEvent) => {
     e.preventDefault();
     const query = typedQuery.trim();
@@ -107,6 +109,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand, language: ap
       setTranscript(query);
       setResponse('');
       setError(null);
+      setIsGenerating(true);
 
       const res = await fetch(buildVoiceApiUrl('/api/voice-query'), {
         method: 'POST',
@@ -144,6 +147,8 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand, language: ap
     } catch (error) {
       console.error('Error sending typed query:', error);
       setError(error instanceof Error ? error.message : 'Connection error. Please try again.');
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -207,6 +212,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand, language: ap
         if (finalTranscript) {
           setTranscript(finalTranscript);
           setResponse(''); // Clear previous response
+          setIsGenerating(true);
           
           try {
             const res = await fetch(buildVoiceApiUrl('/api/voice-query'), {
@@ -252,6 +258,8 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand, language: ap
             console.error('Error in voice recognition:', error);
             setError(error instanceof Error ? error.message : 'Connection error. Please try again.');
             setResponse('');
+          } finally {
+            setIsGenerating(false);
           }
         }
       };
@@ -306,7 +314,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand, language: ap
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            <Mic className="w-5 h-5" />
+            <Mic className="w-5 h-5 text-primary" />
             {t('voice.title')}
           </CardTitle>
           <div className="flex items-center gap-2">
@@ -360,6 +368,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand, language: ap
         {/* Status */}
         <div className="text-sm text-muted-foreground">
           {isListening ? t('voice.listening') :
+           isGenerating ? "Generating response from AI..." :
            isSpeaking ? t('voice.speaking') :
            t('voice.idle')}
         </div>
@@ -371,20 +380,21 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand, language: ap
               value={typedQuery}
               onChange={(e) => setTypedQuery(transliterateInput(e.target.value, selectedLanguage))}
               placeholder={t('placeholder.typeQuestion')}
+              disabled={isGenerating}
               data-testid="input-typed-voice-query"
             />
-            <Button type="submit" disabled={!typedQuery.trim()} data-testid="button-send-typed-query">
-              {t('voice.send')}
+            <Button type="submit" disabled={!typedQuery.trim() || isGenerating} data-testid="button-send-typed-query">
+              {isGenerating ? "Thinking..." : t('voice.send')}
             </Button>
           </div>
         </form>
 
         {/* Current Interaction */}
-        {(transcript || response) && (
+        {(transcript || response || isGenerating) && (
           <div className="space-y-3">
             {transcript && (
               <div className="p-3 bg-muted rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2 mb-1">
                   <span className="text-sm font-medium">{t('voice.youSaid')}</span>
                   <Badge variant="secondary" className="text-xs">
                     {getLanguageFlag(currentLanguage)} {currentLanguage.toUpperCase()}
@@ -394,11 +404,21 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand, language: ap
               </div>
             )}
 
-            {response && (
+            {isGenerating && (
+              <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg flex items-center space-x-3">
+                <div className="w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin shrink-0"></div>
+                <div>
+                  <p className="text-sm font-medium text-primary">FarmWise AI Advisor is thinking...</p>
+                  <p className="text-xs text-muted-foreground">Analyzing your farming query and building step-by-step guidance.</p>
+                </div>
+              </div>
+            )}
+
+            {response && !isGenerating && (
               <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{t('voice.response')}</span>
+                    <span className="text-sm font-medium text-green-900">{t('voice.response')}</span>
                     <Badge variant="secondary" className="text-xs">
                       {getLanguageFlag(currentLanguage)} {currentLanguage.toUpperCase()}
                     </Badge>
@@ -415,7 +435,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand, language: ap
                     <Volume2 className="w-3 h-3" />
                   </Button>
                 </div>
-                <p className="text-sm whitespace-pre-wrap leading-relaxed">{response}</p>
+                <p className="text-sm text-green-950 whitespace-pre-wrap leading-relaxed">{response}</p>
               </div>
             )}
           </div>

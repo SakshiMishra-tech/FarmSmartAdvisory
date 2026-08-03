@@ -30,6 +30,7 @@ export function SoilHealth({ farmer }: SoilHealthProps) {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [previewData, setPreviewData] = useState<SoilState | null>(null);
+  const [extractionError, setExtractionError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Partial<Record<keyof SoilState, string>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -103,32 +104,78 @@ export function SoilHealth({ farmer }: SoilHealthProps) {
     setData(prev => ({ ...prev, [id]: value }));
   };
 
-  // Handle SHC Upload Mock
+  // Handle SHC Upload & Document Validation
   const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Start mock extraction
-    setIsExtracting(true);
-    
-    // Simulate OCR processing delay
-    setTimeout(() => {
-      setIsExtracting(false);
-      // Generate realistic mock data based on the file
-      setPreviewData({
-        N: (Math.random() * 80 + 20).toFixed(1),
-        P: (Math.random() * 40 + 10).toFixed(1),
-        K: (Math.random() * 50 + 15).toFixed(1),
-        ph: (Math.random() * 3 + 5).toFixed(1), // 5.0 to 8.0
-      });
-      toast({
-        title: 'Extraction Complete',
-        description: 'Review the extracted data before applying it to your form.',
-      });
-    }, 2500);
+    setExtractionError(null);
+    setPreviewData(null);
 
-    // Reset input
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    // File size check (10MB max)
+    if (file.size > 10 * 1024 * 1024) {
+      const msg = "File size exceeds 10MB limit. Please upload a smaller document.";
+      setExtractionError(msg);
+      toast({ title: 'Upload Error', description: msg, variant: 'destructive' });
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    setIsExtracting(true);
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64Data = reader.result as string;
+        const res = await fetch('/api/soil-health/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            image: base64Data,
+            mimeType: file.type || 'image/jpeg',
+            fileName: file.name
+          })
+        });
+
+        const result = await res.json();
+        if (res.ok && result.success && result.data) {
+          setPreviewData(result.data);
+          setExtractionError(null);
+          toast({
+            title: 'Soil Health Card Validated',
+            description: 'Extracted Nitrogen, Phosphorus, Potassium, and pH values successfully.',
+          });
+        } else {
+          const errorMsg = result.error || 'The uploaded file is not a valid Soil Health Card or Soil Testing Report.';
+          setExtractionError(errorMsg);
+          toast({
+            title: 'Invalid Document',
+            description: errorMsg,
+            variant: 'destructive',
+          });
+        }
+      } catch (err: any) {
+        console.error("Extraction error:", err);
+        const errStr = "Failed to analyze document. Please ensure you upload a clear photo or PDF of a valid Soil Health Card.";
+        setExtractionError(errStr);
+        toast({
+          title: 'Document Validation Error',
+          description: errStr,
+          variant: 'destructive',
+        });
+      } finally {
+        setIsExtracting(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+
+    reader.onerror = () => {
+      setIsExtracting(false);
+      setExtractionError("Could not read uploaded file.");
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    reader.readAsDataURL(file);
   };
 
   const applyPreview = () => {
@@ -289,9 +336,22 @@ export function SoilHealth({ farmer }: SoilHealthProps) {
                 <FileText className="w-5 h-5 text-muted-foreground" />
                 <h3 className="font-medium">Fast Data Entry</h3>
               </div>
-              <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+              <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
                 Have a physical or digital Soil Health Card? Upload a photo or PDF and our system will extract the values for you automatically.
               </p>
+
+              {extractionError && (
+                <div className="mb-4 p-3 bg-destructive/10 border border-destructive/30 rounded-lg flex items-start space-x-2.5 text-xs text-destructive animate-in fade-in">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-semibold">Invalid Document</p>
+                    <p className="mt-0.5 text-destructive/90">{extractionError}</p>
+                  </div>
+                  <button onClick={() => setExtractionError(null)} className="text-destructive/70 hover:text-destructive">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
 
               {isExtracting ? (
                 <div className="border-2 border-dashed border-primary/30 rounded-xl p-8 flex flex-col items-center justify-center text-center bg-primary/5 h-48">
