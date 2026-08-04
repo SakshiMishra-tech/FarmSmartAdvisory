@@ -685,13 +685,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         language: language || 'en'
       });
 
-      const farmer = await storage.syncFarmerProfile({ ...farmerData, id: targetFarmerId }, sourceFarmerId || undefined);
+      // Resolve source: use explicitly provided sourceFarmerId, otherwise look up any existing
+      // profile with the same phone number that has a different ID (legacy migration case).
+      let resolvedSourceId = sourceFarmerId || undefined;
+      if (!resolvedSourceId) {
+        const existingByPhone = await storage.getFarmerByPhone(cleanPhone);
+        if (existingByPhone && existingByPhone.id !== targetFarmerId) {
+          resolvedSourceId = existingByPhone.id;
+        }
+      }
+
+      const farmer = await storage.syncFarmerProfile({ ...farmerData, id: targetFarmerId }, resolvedSourceId);
       res.json({ success: true, farmer });
     } catch (error: any) {
       console.error('Profile sync error:', error);
       res.status(400).json({ success: false, error: error.message });
     }
   });
+
 
   // Delete farmer account profile and all user data from PostgreSQL / Supabase
   app.delete('/api/farmers/:id', async (req, res) => {
