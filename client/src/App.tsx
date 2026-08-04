@@ -10,6 +10,7 @@ import Dashboard from "@/pages/dashboard";
 import NotFound from "@/pages/not-found";
 import i18n from "@/lib/i18n";
 import { supabase } from "@/lib/supabase";
+import { User } from "@supabase/supabase-js";
 import { useSessionManager } from "@/hooks/use-session";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -17,11 +18,13 @@ import { ThemeProvider } from "next-themes";
 
 function Router() {
   const [farmer, setFarmer] = useState<any>(null);
+  const [authUser, setAuthUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [, setLocation] = useLocation();
 
   const { showWarning, stayLoggedIn, handleLogout } = useSessionManager(() => {
     setFarmer(null);
+    setAuthUser(null);
     setLocation("/");
   });
 
@@ -47,6 +50,7 @@ function Router() {
     // 2. Check active Supabase session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
+        setAuthUser(session.user);
         syncOrFetchProfile(session.user.id, session.user.email || undefined, session.user.user_metadata || {});
       } else {
         setIsLoading(false);
@@ -57,10 +61,14 @@ function Router() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
+        setAuthUser(session.user);
         syncOrFetchProfile(session.user.id, session.user.email || undefined, session.user.user_metadata || {});
-      } else if (!localStorage.getItem('farmwise-farmer')) {
-        setFarmer(null);
-        setIsLoading(false);
+      } else {
+        setAuthUser(null);
+        if (!localStorage.getItem('farmwise-farmer')) {
+          setFarmer(null);
+          setIsLoading(false);
+        }
       }
     });
 
@@ -76,8 +84,9 @@ function Router() {
         setFarmer(farmerObj);
         localStorage.setItem('farmwise-farmer', JSON.stringify(farmerObj));
       } else {
+        // Profile not found under this Supabase auth ID
         const savedFarmerStr = localStorage.getItem('farmwise-farmer');
-        let savedFarmer = null;
+        let savedFarmer: any = null;
         if (savedFarmerStr) {
           try {
             savedFarmer = JSON.parse(savedFarmerStr);
@@ -85,28 +94,51 @@ function Router() {
             console.warn('Could not parse saved farmer profile', parseError);
           }
         }
-        const profileSource = savedFarmer || {
-          name: metadata.name || metadata.full_name || 'Farmer',
-          phone: metadata.phone || metadata.phone_number || '',
-          email: email || metadata.email || '',
-          state: metadata.state || '',
-          district: metadata.district || '',
-          language: metadata.language || 'en'
-        };
 
-        if (profileSource?.phone && profileSource?.state && profileSource?.district) {
+        if (savedFarmer && savedFarmer.id === userId && savedFarmer.phone && savedFarmer.state && savedFarmer.district) {
+          // savedFarmer has the correct Supabase ID but profile may not exist in DB yet (fresh signup).
+          // Call sync to ensure it's created in DB (sync is idempotent — safe to call even if it exists).
           const syncResponse = await fetch('/api/farmers/sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               id: userId,
-              sourceFarmerId: savedFarmer?.id,
-              name: profileSource.name,
-              phone: profileSource.phone,
-              email: profileSource.email,
-              state: profileSource.state,
-              district: profileSource.district,
-              language: profileSource.language || 'en'
+              sourceFarmerId: undefined,
+              name: savedFarmer.name || metadata.name || metadata.full_name || 'Farmer',
+              phone: savedFarmer.phone,
+              email: savedFarmer.email || email || null,
+              state: savedFarmer.state,
+              district: savedFarmer.district,
+              language: savedFarmer.language || 'en'
+            })
+          });
+          if (syncResponse.ok) {
+            const syncResult = await syncResponse.json();
+            const farmerObj = syncResult.farmer;
+            setFarmer(farmerObj);
+            localStorage.setItem('farmwise-farmer', JSON.stringify(farmerObj));
+          } else {
+            // DB sync failed but we have localStorage data — show dashboard with cached profile
+            setFarmer(savedFarmer);
+          }
+        } else if (savedFarmer && savedFarmer.id === userId) {
+          // savedFarmer has correct ID but missing phone/state/district — show Complete Profile form
+          setFarmer(null);
+          localStorage.removeItem('farmwise-farmer');
+        } else if (savedFarmer && savedFarmer.id && savedFarmer.phone && savedFarmer.state && savedFarmer.district) {
+          // savedFarmer has a legacy ID — migrate it automatically via sync
+          const syncResponse = await fetch('/api/farmers/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: userId,
+              sourceFarmerId: savedFarmer.id,
+              name: savedFarmer.name || metadata.name || metadata.full_name || 'Farmer',
+              phone: savedFarmer.phone,
+              email: savedFarmer.email || email || null,
+              state: savedFarmer.state,
+              district: savedFarmer.district,
+              language: savedFarmer.language || 'en'
             })
           });
 
@@ -115,12 +147,15 @@ function Router() {
             const farmerObj = syncResult.farmer;
             setFarmer(farmerObj);
             localStorage.setItem('farmwise-farmer', JSON.stringify(farmerObj));
-          } else if (savedFarmer) {
-            setFarmer(savedFarmer);
+          } else {
+            // Sync failed — clear stale cache and show Complete Profile form
+            localStorage.removeItem('farmwise-farmer');
+            setFarmer(null);
           }
-        } else if (savedFarmer) {
-          setFarmer(savedFarmer);
-          localStorage.setItem('farmwise-farmer', JSON.stringify(savedFarmer));
+        } else {
+          // No usable saved profile — clear stale cache, show Complete Profile
+          localStorage.removeItem('farmwise-farmer');
+          setFarmer(null);
         }
       }
     } catch (e) {
@@ -148,7 +183,7 @@ function Router() {
           {farmer ? (
             <Dashboard farmer={farmer} onLogout={handleLogout} />
           ) : (
-            <Landing onLogin={setFarmer} />
+            <Landing onLogin={setFarmer} authUser={authUser} />
           )}
         </Route>
         <Route component={NotFound} />

@@ -107,11 +107,21 @@ export class DatabaseStorage implements IStorage {
       }
 
       if (sourceFarmer && sourceFarmer.id !== targetId) {
+        // Create the new farmer profile first so referencing foreign keys are satisfied during migration
+        await tx.insert(schema.farmers).values({
+          ...mutableFields,
+          id: targetId,
+          createdAt: sourceFarmer.createdAt,
+          updatedAt: timestamp,
+        });
+
+        // Reassign all associated data from the old profile ID to the new Supabase ID
         await this.reassignFarmerReferences(tx, sourceFarmer.id, targetId);
-        const [migratedFarmer] = await tx.update(schema.farmers)
-          .set({ ...mutableFields, id: targetId, createdAt: sourceFarmer.createdAt, updatedAt: timestamp })
-          .where(eq(schema.farmers.id, sourceFarmer.id))
-          .returning();
+
+        // Delete the old profile
+        await tx.delete(schema.farmers).where(eq(schema.farmers.id, sourceFarmer.id));
+
+        const [migratedFarmer] = await tx.select().from(schema.farmers).where(eq(schema.farmers.id, targetId));
         return (migratedFarmer as unknown) as Farmer;
       }
 
