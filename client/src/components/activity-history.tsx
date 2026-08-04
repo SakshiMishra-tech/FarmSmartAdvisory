@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Clock, Wheat, Popcorn, Download, Search, CloudRain, ShieldAlert, FileText, Mic, Trash2, ChevronDown, ChevronUp, FileSpreadsheet, FileIcon } from 'lucide-react';
+import { Clock, Wheat, Popcorn, Download, Search, CloudRain, ShieldAlert, FileText, Mic, Trash2, ChevronDown, ChevronUp, FileSpreadsheet, FileIcon, AlertCircle, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, subDays, isAfter } from 'date-fns';
@@ -14,12 +14,13 @@ import autoTable from 'jspdf-autotable';
 interface ActivityHistoryProps {
   farmer: any;
   onMakePrediction: () => void;
+  onContinueVoiceConversation?: () => void;
 }
 
 type FilterRange = 'all' | 'today' | 'week' | 'month';
 type TypeFilter = 'all' | 'crop' | 'yield' | 'calamity' | 'voice' | 'soil' | 'weather';
 
-export function ActivityHistory({ farmer, onMakePrediction }: ActivityHistoryProps) {
+export function ActivityHistory({ farmer, onMakePrediction, onContinueVoiceConversation }: ActivityHistoryProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -29,7 +30,7 @@ export function ActivityHistory({ farmer, onMakePrediction }: ActivityHistoryPro
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const { data: historyData, isLoading } = useQuery({
+  const { data: historyData, isLoading, isError, refetch } = useQuery({
     queryKey: ['/api/farmers', farmer.id, 'history'],
     enabled: !!farmer.id
   });
@@ -159,6 +160,23 @@ export function ActivityHistory({ farmer, onMakePrediction }: ActivityHistoryPro
         <CardContent className="p-6 text-center">
           <Clock className="w-12 h-12 mx-auto mb-4 opacity-50 animate-spin text-primary" />
           <p className="text-muted-foreground font-medium">{t('history.loading')}</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isError) {
+    return (
+      <Card className="border-destructive/20 bg-destructive/5">
+        <CardContent className="p-10 text-center space-y-4">
+          <AlertCircle className="w-12 h-12 mx-auto text-destructive" />
+          <h3 className="font-semibold text-lg text-destructive">Failed to load history</h3>
+          <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+            A network issue occurred while retrieving your farming history records. Please check your connection and try again.
+          </p>
+          <Button onClick={() => refetch()} variant="outline" className="border-destructive text-destructive hover:bg-destructive/10">
+            Retry Connection
+          </Button>
         </CardContent>
       </Card>
     );
@@ -296,7 +314,18 @@ export function ActivityHistory({ farmer, onMakePrediction }: ActivityHistoryPro
                       )}
                     </div>
                     
-                    <div className="flex justify-end pt-2">
+                    <div className="flex justify-end pt-2 space-x-2">
+                      {activity.type === 'voice' && onContinueVoiceConversation && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => onContinueVoiceConversation()}
+                          className="border-emerald-600 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
+                        >
+                          <Mic className="w-4 h-4 mr-2" />
+                          Continue Conversation
+                        </Button>
+                      )}
                       <Button 
                         variant="destructive" 
                         size="sm" 

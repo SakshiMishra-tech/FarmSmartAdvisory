@@ -80,7 +80,9 @@ export function VoiceAssistant({ language: appLanguage, farmerId }: VoiceAssista
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isGenerating]);
 
-  // Load past conversation history on mount into thread
+  const [historyConversations, setHistoryConversations] = useState<any[]>([]);
+
+  // Load past conversation history on mount
   useEffect(() => {
     const loadHistory = async () => {
       if (!farmerId) return;
@@ -90,28 +92,8 @@ export function VoiceAssistant({ language: appLanguage, farmerId }: VoiceAssista
           const contentType = response.headers.get('content-type');
           if (contentType && contentType.includes('application/json')) {
             const data = await response.json();
-            const thread: ChatMessage[] = [];
-            
-            data.conversations.forEach((item: any) => {
-              const ts = new Date(item.createdAt || item.timestamp || Date.now());
-              thread.push({
-                id: `q_${item.id}`,
-                role: 'user',
-                text: item.question || item.query,
-                timestamp: ts,
-                language: item.language
-              });
-              thread.push({
-                id: `a_${item.id}`,
-                role: 'assistant',
-                text: item.answer || item.response,
-                timestamp: ts,
-                language: item.language
-              });
-            });
-
-            if (thread.length > 0) {
-              setMessages(thread);
+            if (data.conversations) {
+              setHistoryConversations(data.conversations);
             }
           }
         }
@@ -122,6 +104,36 @@ export function VoiceAssistant({ language: appLanguage, farmerId }: VoiceAssista
 
     loadHistory();
   }, [farmerId]);
+
+  // Method to load previous conversation thread into the active session
+  const handleContinueFromHistory = () => {
+    if (historyConversations.length === 0) return;
+    
+    const thread: ChatMessage[] = [];
+    historyConversations.forEach((item: any) => {
+      const ts = new Date(item.createdAt || item.timestamp || Date.now());
+      thread.push({
+        id: `q_${item.id}`,
+        role: 'user',
+        text: item.question || item.query,
+        timestamp: ts,
+        language: item.language
+      });
+      thread.push({
+        id: `a_${item.id}`,
+        role: 'assistant',
+        text: item.answer || item.response,
+        timestamp: ts,
+        language: item.language
+      });
+    });
+    
+    setMessages(thread);
+    toast({
+      title: "Conversation Restored",
+      description: "Successfully continued from your previous history."
+    });
+  };
 
   // Speech Recognition Setup
   useEffect(() => {
@@ -375,9 +387,25 @@ export function VoiceAssistant({ language: appLanguage, farmerId }: VoiceAssista
                 <Sparkles className="w-6 h-6" />
               </div>
               <h3 className="font-semibold text-base text-foreground">{ui.title}</h3>
-              <p className="text-xs max-w-md mt-1">
+              <p className="text-xs max-w-md mt-1 mb-6">
                 {ui.emptyDesc || "Ask anything about crops, fertilizers, pest control, weather, or irrigation."}
               </p>
+
+              {historyConversations.length > 0 && (
+                <div className="bg-card border border-primary/20 p-4 rounded-xl max-w-sm w-full flex flex-col items-center shadow-sm animate-in zoom-in-95">
+                  <span className="text-xs font-semibold text-primary uppercase tracking-wider mb-2">Previous Session Found</span>
+                  <p className="text-xs text-muted-foreground mb-4 text-center">
+                    You have {historyConversations.length} past query pairs in your history. Would you like to restore this thread?
+                  </p>
+                  <Button 
+                    type="button" 
+                    onClick={handleContinueFromHistory}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold"
+                  >
+                    Continue from History
+                  </Button>
+                </div>
+              )}
             </div>
           ) : (
             messages.map((msg) => (

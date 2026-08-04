@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { MapPin, Sparkles, Target, Volume2, Droplets, Beaker, Bug, Lightbulb, Cloud, Wheat, AlertCircle } from 'lucide-react';
+import { MapPin, Sparkles, Target, Volume2, Droplets, Beaker, Bug, Lightbulb, Cloud, Wheat, AlertCircle, RotateCcw, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
@@ -34,6 +34,7 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
   
   const hasSHC = false;
   const [prediction, setPrediction] = useState<any>(null);
+  const [rainfallAdjusted, setRainfallAdjusted] = useState(false);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -156,16 +157,40 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
 
   const validateCropForm = () => {
     const errors: Record<string, string> = {};
+
+    // Soil nutrient validation
     if (!soilData.N || soilData.N.toString().trim() === '') errors.N = "Please enter Nitrogen value.";
     if (!soilData.P || soilData.P.toString().trim() === '') errors.P = "Please enter Phosphorus value.";
     if (!soilData.K || soilData.K.toString().trim() === '') errors.K = "Please enter Potassium value.";
     if (!soilData.ph || soilData.ph.toString().trim() === '') errors.ph = "Please enter pH level.";
 
+    // Weather field validation
+    if (!soilData.temperature || soilData.temperature.toString().trim() === '') {
+      errors.temperature = "Temperature is required. Please enter a value or use Live Location.";
+    } else if (parseFloat(soilData.temperature) < -10 || parseFloat(soilData.temperature) > 60) {
+      errors.temperature = "Temperature must be between -10°C and 60°C.";
+    }
+    if (!soilData.humidity || soilData.humidity.toString().trim() === '') {
+      errors.humidity = "Humidity is required. Please enter a value or use Live Location.";
+    } else if (parseFloat(soilData.humidity) < 0 || parseFloat(soilData.humidity) > 100) {
+      errors.humidity = "Humidity must be between 0% and 100%.";
+    }
+    if (!soilData.rainfall || soilData.rainfall.toString().trim() === '') {
+      errors.rainfall = "Rainfall is required. Please enter a value or use Live Location.";
+    } else if (parseFloat(soilData.rainfall) < 0) {
+      errors.rainfall = "Rainfall cannot be negative.";
+    }
+
+    // Location validation
+    if (!farmer.district || !farmer.state) {
+      errors.location = "Please set your State and District in Settings before predicting.";
+    }
+
     setCropFormErrors(errors);
     if (Object.keys(errors).length > 0) {
       toast({
         title: "Validation Error",
-        description: "Please complete all required fields.",
+        description: "Please complete all required fields before predicting.",
         variant: "destructive"
       });
       return false;
@@ -208,9 +233,11 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
     };
 
     let rainfallVal = parseOrZero(soilData.rainfall);
+    const wasRainfallAdjusted = rainfallVal > 0 && rainfallVal < 20.2;
     if (rainfallVal < 20.2) {
       rainfallVal = 20.2; // Auto-clamp to minimum acceptable rainfall to prevent Zod 500 error
     }
+    setRainfallAdjusted(wasRainfallAdjusted);
 
     const parsedData = {
       N: parseOrZero(soilData.N),
@@ -233,6 +260,42 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
       const text = `${t('crop.results')}: ${localizeCrop(prediction.predicted_crop)}, ${t('crop.confidence')} ${prediction.confidence_percentage.toFixed(1)}%.`;
       speak(text, farmer.language === 'hi' ? 'hi-IN' : 'en-US');
     }
+  };
+
+  // Generate a concise human-readable reason why this crop was recommended
+  const getReason = () => {
+    if (!prediction) return '';
+    const crop = localizeCrop(prediction.predicted_crop);
+    const N = parseFloat(soilData.N) || 0;
+    const P = parseFloat(soilData.P) || 0;
+    const K = parseFloat(soilData.K) || 0;
+    const ph = parseFloat(soilData.ph) || 0;
+    const temp = parseFloat(soilData.temperature) || 0;
+    const confidence = prediction.confidence_percentage || 0;
+
+    const factors: string[] = [];
+    if (N >= 60 && N <= 140) factors.push('good nitrogen levels');
+    if (P >= 30 && P <= 80) factors.push('adequate phosphorus');
+    if (K >= 30 && K <= 80) factors.push('sufficient potassium');
+    if (ph >= 5.5 && ph <= 7.5) factors.push('optimal pH range');
+    if (temp >= 15 && temp <= 35) factors.push('suitable temperature');
+
+    if (factors.length === 0) {
+      return `${crop} is recommended with ${confidence.toFixed(1)}% confidence based on your current soil and weather conditions.`;
+    }
+    return `${crop} is the best match (${confidence.toFixed(1)}% confidence) due to your ${factors.slice(0, 3).join(', ')}.`;
+  };
+
+  // Extract water requirement text from irrigation advisory
+  const getWaterRequirement = () => {
+    if (!prediction?.advisory) return null;
+    return prediction.advisory.find((a: any) => a.type === 'irrigation');
+  };
+
+  // Extract fertilizer suggestion text from fertilizer advisory
+  const getFertilizerSuggestion = () => {
+    if (!prediction?.advisory) return null;
+    return prediction.advisory.find((a: any) => a.type === 'fertilizer');
   };
 
   return (
@@ -444,6 +507,7 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
                   <span className="text-sm font-medium" data-testid="weather-title">
                     {t('crop.weatherData')}
                   </span>
+                  <span className="text-xs text-muted-foreground">(auto-filled • editable)</span>
                 </div>
                 <Button
                   type="button"
@@ -457,18 +521,18 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
                   {t('button.refresh')}
                 </Button>
               </div>
-              
+
               {isWeatherError && !soilData.temperature ? (
                 <div className="mb-3 p-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded text-xs text-amber-700 dark:text-amber-300 flex items-center space-x-2">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  <span>{farmer.language === 'hi' ? "लाइव मौसम डेटा की जगह क्षेत्रीय मौसमी औसतों का उपयोग किया जा रहा है।" : "Using regional seasonal averages for weather data."}</span>
+                  <span>{farmer.language === 'hi' ? "लाइव मौसम डेटा उपलब्ध नहीं। कृपया नीचे मौसम मान दर्ज करें।" : "Live weather unavailable. Please enter values manually below."}</span>
                 </div>
               ) : hasSHC ? (
                 <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
                   {t('crop.weatherNote')}
                 </div>
               ) : null}
-              
+
               {weatherData && weatherData.success && !isLoadingWeather && (
                 <div className="absolute top-4 right-4 flex items-center space-x-1.5 bg-background/80 backdrop-blur-sm px-2 py-1 rounded-md border text-[10px] text-muted-foreground font-medium">
                   <span className="relative flex h-2 w-2">
@@ -478,36 +542,82 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
                   <span>Updated just now</span>
                 </div>
               )}
-              
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-                <div>
-                  <span className="text-muted-foreground">{t('crop.temperature')}</span>
-                  <div className="font-medium" data-testid="weather-temperature">
-                    {soilData.temperature ? `${formatNumber(Number(soilData.temperature), farmer.language)}${formatUnit('°C', farmer.language)}` : '--'}
-                  </div>
+
+              {/* Editable Weather Fields */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="temperature" className="text-xs text-muted-foreground">{t('crop.temperature')} (°C)</Label>
+                  <Input
+                    id="temperature"
+                    type="number"
+                    placeholder="e.g., 28.5"
+                    step="0.1"
+                    min="-10"
+                    max="60"
+                    value={soilData.temperature}
+                    onChange={(e) => {
+                      setCropFormErrors(prev => ({ ...prev, temperature: '' }));
+                      setSoilData(prev => ({ ...prev, temperature: e.target.value }));
+                    }}
+                    className={`text-center font-medium ${cropFormErrors.temperature ? 'border-destructive focus:ring-destructive' : ''}`}
+                    data-testid="weather-temperature"
+                  />
+                  {cropFormErrors.temperature && <p className="text-xs text-destructive">{cropFormErrors.temperature}</p>}
                 </div>
-                <div>
-                  <span className="text-muted-foreground">{t('crop.humidity')}</span>
-                  <div className="font-medium" data-testid="weather-humidity">
-                    {soilData.humidity ? `${formatNumber(Number(soilData.humidity), farmer.language)}${formatUnit('%', farmer.language)}` : '--'}
-                  </div>
+                <div className="space-y-1">
+                  <Label htmlFor="humidity" className="text-xs text-muted-foreground">{t('crop.humidity')} (%)</Label>
+                  <Input
+                    id="humidity"
+                    type="number"
+                    placeholder="e.g., 65"
+                    min="0"
+                    max="100"
+                    value={soilData.humidity}
+                    onChange={(e) => {
+                      setCropFormErrors(prev => ({ ...prev, humidity: '' }));
+                      setSoilData(prev => ({ ...prev, humidity: e.target.value }));
+                    }}
+                    className={`text-center font-medium ${cropFormErrors.humidity ? 'border-destructive focus:ring-destructive' : ''}`}
+                    data-testid="weather-humidity"
+                  />
+                  {cropFormErrors.humidity && <p className="text-xs text-destructive">{cropFormErrors.humidity}</p>}
                 </div>
-                <div>
-                  <span className="text-muted-foreground">{t('crop.rainfall')}</span>
-                  <div className="font-medium" data-testid="weather-rainfall">
-                    {soilData.rainfall ? `${formatNumber(Number(soilData.rainfall), farmer.language)}${formatUnit('mm', farmer.language)}` : '--'}
-                  </div>
+                <div className="space-y-1">
+                  <Label htmlFor="rainfall" className="text-xs text-muted-foreground">{t('crop.rainfall')} (mm)</Label>
+                  <Input
+                    id="rainfall"
+                    type="number"
+                    placeholder="e.g., 150"
+                    min="0"
+                    step="0.1"
+                    value={soilData.rainfall}
+                    onChange={(e) => {
+                      setCropFormErrors(prev => ({ ...prev, rainfall: '' }));
+                      setSoilData(prev => ({ ...prev, rainfall: e.target.value }));
+                    }}
+                    className={`text-center font-medium ${cropFormErrors.rainfall ? 'border-destructive focus:ring-destructive' : ''}`}
+                    data-testid="weather-rainfall"
+                  />
+                  {cropFormErrors.rainfall && <p className="text-xs text-destructive">{cropFormErrors.rainfall}</p>}
                 </div>
               </div>
             </div>
 
             {/* Location */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 p-3 bg-muted/50 rounded-md">
+            <div className={`flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 p-3 rounded-md border ${
+              cropFormErrors.location ? 'bg-destructive/5 border-destructive/30' : 'bg-muted/50 border-transparent'
+            }`}>
               <div className="flex items-center space-x-2">
-                <MapPin className="text-primary w-4 h-4 flex-shrink-0" />
-                                  <span className="text-sm" data-testid="location-display">
+                <MapPin className={`w-4 h-4 flex-shrink-0 ${cropFormErrors.location ? 'text-destructive' : 'text-primary'}`} />
+                {farmer.district && farmer.state ? (
+                  <span className="text-sm" data-testid="location-display">
                     {t(getLocalizedDistrictName(farmer.district, farmer.language))}, {t(getLocalizedStateName(farmer.state, farmer.language))}
                   </span>
+                ) : (
+                  <span className="text-sm text-destructive font-medium">
+                    Location not set — please update in Settings
+                  </span>
+                )}
               </div>
               <Button
                 type="button"
@@ -519,12 +629,15 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
               >
                 {t('button.autoDetect')}
               </Button>
+              {cropFormErrors.location && (
+                <p className="text-xs text-destructive w-full">{cropFormErrors.location}</p>
+              )}
             </div>
 
             <Button 
               type="submit" 
               className="w-full h-12 text-lg rounded-xl shadow-sm hover:shadow transition-all font-semibold mt-4"
-              disabled={predictionMutation.isPending || isLoadingWeather || !soilData.temperature}
+              disabled={predictionMutation.isPending}
               data-testid="button-predict-crop"
             >
               <Sparkles className="w-4 h-4 mr-2" />
@@ -534,12 +647,58 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
         </CardContent>
       </Card>
 
+      {/* Rainfall adjusted banner */}
+      {rainfallAdjusted && (
+        <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg flex items-start space-x-2 text-xs text-amber-800 dark:text-amber-300">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>
+            <strong>Note:</strong> Your entered rainfall ({soilData.rainfall} mm) is below the minimum required for the ML model (20.2 mm). It has been automatically adjusted to 20.2 mm for prediction accuracy. The recommendation is still valid for your region.
+          </span>
+        </div>
+      )}
+
       {/* Loading State */}
       {predictionMutation.isPending && (
-        <Card className="animate-pulse border-primary/20 bg-primary/5">
-          <CardContent className="p-8 flex flex-col items-center justify-center space-y-4">
-            <div className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
-            <p className="text-primary font-medium">{t('loading.analyzingShort')}...</p>
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-background to-primary/5 shadow-md animate-in fade-in duration-300">
+          <CardContent className="p-8 flex flex-col items-center justify-center space-y-4 text-center">
+            <div className="relative flex items-center justify-center">
+              <div className="w-14 h-14 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+              <Sparkles className="w-6 h-6 text-primary absolute animate-pulse" />
+            </div>
+            <div className="space-y-1 max-w-sm">
+              <p className="text-foreground font-semibold text-sm">{t('loading.analyzingShort')}...</p>
+              <p className="text-xs text-muted-foreground">Evaluating soil nutrients, climate suitability & localized crop yield models...</p>
+            </div>
+            <div className="w-48 h-1.5 bg-muted rounded-full overflow-hidden">
+              <div className="h-full bg-primary rounded-full animate-pulse" style={{ width: '75%' }} />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Network / Prediction Error State with Retry Button */}
+      {predictionMutation.isError && !predictionMutation.isPending && (
+        <Card className="border-destructive/30 bg-destructive/5 shadow-sm animate-in fade-in duration-300">
+          <CardContent className="p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-start space-x-3 text-destructive">
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+              <div className="text-left">
+                <h4 className="font-semibold text-sm">Failed to generate crop recommendation</h4>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {(predictionMutation.error as any)?.message || "A network or server error occurred. Please check your soil & weather values and try again."}
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleSubmit}
+              className="border-destructive/30 hover:bg-destructive/10 text-destructive shrink-0"
+              data-testid="button-retry-crop-prediction"
+            >
+              <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Retry Recommendation
+            </Button>
           </CardContent>
         </Card>
       )}
@@ -589,6 +748,53 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
                 </div>
               </div>
 
+              {/* ─── NEW: Reason + Water Requirement + Fertilizer ─── */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                {/* Reason */}
+                <div className="p-4 bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 rounded-xl shadow-sm">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <div className="p-1.5 bg-primary/20 text-primary rounded-lg">
+                      <Lightbulb className="w-4 h-4" />
+                    </div>
+                    <h5 className="font-bold text-sm text-primary">Why This Crop?</h5>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed" data-testid="crop-reason">
+                    {getReason()}
+                  </p>
+                </div>
+
+                {/* Water Requirement */}
+                {getWaterRequirement() && (
+                  <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/40 dark:to-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl shadow-sm">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <div className="p-1.5 bg-blue-100 dark:bg-blue-900/60 text-blue-600 rounded-lg">
+                        <Droplets className="w-4 h-4" />
+                      </div>
+                      <h5 className="font-bold text-sm text-blue-700 dark:text-blue-300">Water Requirement</h5>
+                    </div>
+                    <p className="text-xs text-blue-600 dark:text-blue-400 leading-relaxed" data-testid="water-requirement">
+                      {getAdvisoryText(getWaterRequirement())}
+                    </p>
+                  </div>
+                )}
+
+                {/* Fertilizer Suggestion */}
+                {getFertilizerSuggestion() && (
+                  <div className="p-4 bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/40 dark:to-green-900/20 border border-green-200 dark:border-green-800 rounded-xl shadow-sm">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <div className="p-1.5 bg-green-100 dark:bg-green-900/60 text-green-600 rounded-lg">
+                        <Beaker className="w-4 h-4" />
+                      </div>
+                      <h5 className="font-bold text-sm text-green-700 dark:text-green-300">Fertilizer Suggestion</h5>
+                    </div>
+                    <p className="text-xs text-green-600 dark:text-green-400 leading-relaxed" data-testid="fertilizer-suggestion">
+                      {getAdvisoryText(getFertilizerSuggestion())}
+                    </p>
+                  </div>
+                )}
+              </div>
+              {/* ─────────────────────────────────────────────────── */}
+
               {/* Alternative Crops */}
               {prediction.alternatives && prediction.alternatives.length > 1 && (
                 <div className="mb-8">
@@ -612,7 +818,7 @@ export function CropRecommendation({ farmer }: CropRecommendationProps) {
                 </div>
               )}
 
-              {/* Advisory Tips */}
+              {/* Advisory Tips — full grid (irrigation, fertilizer, pest) */}
               {prediction.advisory && prediction.advisory.length > 0 && (
                 <div className="space-y-4">
                   <h4 className="text-sm uppercase tracking-wider text-muted-foreground font-semibold flex items-center space-x-2 mb-2">

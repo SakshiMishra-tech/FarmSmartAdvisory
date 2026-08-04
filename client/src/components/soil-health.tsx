@@ -34,20 +34,48 @@ export function SoilHealth({ farmer }: SoilHealthProps) {
   const [errors, setErrors] = useState<Partial<Record<keyof SoilState, string>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Load from local storage
+  // Load draft or previous database report on mount
   useEffect(() => {
-    const draft = localStorage.getItem(`soil_draft_${farmer.id}`);
-    if (draft) {
-      try {
-        const parsed = JSON.parse(draft);
-        setData(parsed.data || { N: '', P: '', K: '', ph: '' });
-        if (parsed.timestamp) {
-          setLastSaved(new Date(parsed.timestamp));
+    const loadPreviousData = async () => {
+      const draft = localStorage.getItem(`soil_draft_${farmer.id}`);
+      if (draft) {
+        try {
+          const parsed = JSON.parse(draft);
+          setData(parsed.data || { N: '', P: '', K: '', ph: '' });
+          if (parsed.timestamp) {
+            setLastSaved(new Date(parsed.timestamp));
+          }
+          return;
+        } catch (e) {
+          console.error('Failed to parse soil draft', e);
         }
-      } catch (e) {
-        console.error('Failed to parse soil draft', e);
       }
-    }
+
+      // No draft found: fetch latest soil health report from history
+      try {
+        const res = await fetch(`/api/farmers/${farmer.id}/history`);
+        if (res.ok) {
+          const result = await res.json();
+          if (result.success && result.history?.soil?.length > 0) {
+            // Get the most recent soil health report (first in array based on routes sorting)
+            const latest = result.history.soil[0];
+            setData({
+              N: latest.n?.toString() || '',
+              P: latest.p?.toString() || '',
+              K: latest.k?.toString() || '',
+              ph: latest.ph?.toString() || ''
+            });
+            if (latest.createdAt) {
+              setLastSaved(new Date(latest.createdAt));
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load previous soil health report:', err);
+      }
+    };
+
+    loadPreviousData();
   }, [farmer.id]);
 
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -216,28 +244,77 @@ export function SoilHealth({ farmer }: SoilHealthProps) {
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-        toast({
-          title: t('soilHealth.validationErrorTitle'),
-          description: t('soilHealth.validationErrorDescription'),
-          variant: 'destructive'
-        });
+      toast({
+        title: t('soilHealth.validationErrorTitle') || "Validation Error",
+        description: t('soilHealth.validationErrorDescription') || "Please fill in all fields correctly.",
+        variant: 'destructive'
+      });
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 600));
+      const nVal = parseFloat(data.N);
+      const pVal = parseFloat(data.P);
+      const kVal = parseFloat(data.K);
+      const phVal = parseFloat(data.ph);
+
+      // Derive status and recommendations
+      let status = "Healthy";
+      const recommendations: string[] = [];
+
+      if (nVal < 50) {
+        status = "Deficient";
+        recommendations.push("Soil nitrogen is low. Apply Nitrogen rich fertilizers like Urea.");
+      }
+      if (pVal < 20) {
+        status = "Deficient";
+        recommendations.push("Soil phosphorus is low. Apply Diammonium Phosphate (DAP).");
+      }
+      if (kVal < 50) {
+        status = "Deficient";
+        recommendations.push("Soil potassium is low. Apply Muriate of Potash (MOP).");
+      }
+      if (phVal < 6.0) {
+        recommendations.push("Soil is acidic. Apply lime or wood ash to increase pH.");
+      } else if (phVal > 7.5) {
+        recommendations.push("Soil is alkaline. Apply gypsum or organic mulch to lower pH.");
+      }
+
+      if (recommendations.length === 0) {
+        recommendations.push("Maintain organic matter content and continue crop rotation.");
+      }
+
+      const response = await fetch('/api/soil-health/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          farmerId: farmer.id,
+          n: nVal,
+          p: pVal,
+          k: kVal,
+          ph: phVal,
+          status,
+          recommendations
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save soil health report');
+      }
+
       localStorage.removeItem(`soil_draft_${farmer.id}`);
       setIsSavedSuccess(true);
+      setLastSaved(new Date());
       
       toast({
-        title: t('soilHealth.profileUpdatedTitle'),
-        description: t('soilHealth.profileUpdatedDescription'),
+        title: t('soilHealth.profileUpdatedTitle') || "Profile Updated",
+        description: t('soilHealth.profileUpdatedDescription') || "Your soil health profile has been saved successfully.",
       });
     } catch (error) {
       toast({
-        title: t('soilHealth.saveFailedTitle'),
-        description: t('soilHealth.saveFailedDescription'),
+        title: t('soilHealth.saveFailedTitle') || "Save Failed",
+        description: t('soilHealth.saveFailedDescription') || "Could not save your soil health profile.",
         variant: 'destructive'
       });
     } finally {

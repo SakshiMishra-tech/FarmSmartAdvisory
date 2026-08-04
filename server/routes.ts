@@ -844,7 +844,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         advisory: mlResult.advisory || []
       });
 
-      const prediction = await storage.createCropPrediction(predictionData);
+      // Server-side debounce: avoid duplicate saves within 5 seconds for same farmer & prediction
+      const existingPredictions = await storage.getCropPredictions(farmerId);
+      const recentPrediction = existingPredictions
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+      let prediction: any;
+      if (
+        recentPrediction && 
+        recentPrediction.crop === mlResult.predicted_crop && 
+        (Date.now() - new Date(recentPrediction.createdAt).getTime()) < 5000
+      ) {
+        prediction = recentPrediction;
+      } else {
+        prediction = await storage.createCropPrediction(predictionData);
+      }
       
       res.json({
         success: true,
@@ -889,7 +903,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           predictedYield: mlResult.predicted_yield
         });
 
-        const prediction = await storage.createYieldPrediction(predictionData);
+      // Server-side debounce: avoid duplicate saves within 5 seconds for same farmer & inputs
+      const existingYields = await storage.getYieldPredictions(farmerId);
+      const recentYield = existingYields
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+      let prediction: any;
+      if (
+        recentYield &&
+        recentYield.crop === yieldData.crop &&
+        recentYield.season === yieldData.season &&
+        recentYield.area === yieldData.area &&
+        (Date.now() - new Date(recentYield.createdAt).getTime()) < 5000
+      ) {
+        prediction = recentYield;
+      } else {
+        prediction = await storage.createYieldPrediction(predictionData);
+      }
         
       res.json({
         success: true,
@@ -933,7 +963,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         weatherConditions: mlResult.weather_conditions
       });
 
-      const prediction = await storage.createCalamityPrediction(predictionData);
+      // Server-side debounce: avoid duplicate saves within 5 seconds for same farmer & hazard result
+      const existingCalamities = await storage.getCalamityPredictions(farmerId);
+      const recentCalamity = existingCalamities
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+      let prediction: any;
+      if (
+        recentCalamity &&
+        recentCalamity.crop === crop &&
+        recentCalamity.overallRisk === mlResult.overall_risk &&
+        (Date.now() - new Date(recentCalamity.createdAt).getTime()) < 5000
+      ) {
+        prediction = recentCalamity;
+      } else {
+        prediction = await storage.createCalamityPrediction(predictionData);
+      }
 
       res.json({
         success: true,
@@ -1047,7 +1092,25 @@ If invalid:
         recommendations
       });
 
-      const report = await storage.createSoilHealthReport(reportData);
+      // Server-side debounce: avoid duplicate saves within 5 seconds for same farmer & parameters
+      const existingReports = await storage.getSoilHealthReports(farmerId);
+      const recentReport = existingReports
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+      let report: any;
+      if (
+        recentReport &&
+        recentReport.n === n &&
+        recentReport.p === p &&
+        recentReport.k === k &&
+        recentReport.ph === ph &&
+        (Date.now() - new Date(recentReport.createdAt).getTime()) < 5000
+      ) {
+        report = recentReport;
+      } else {
+        report = await storage.createSoilHealthReport(reportData);
+      }
+
       res.json({ success: true, report });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });

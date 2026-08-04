@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Clock, Wheat, Popcorn, Download, Calendar, ArrowRight, Sparkles } from 'lucide-react';
+import { Clock, Wheat, Popcorn, Download, Calendar, ArrowRight, Sparkles, AlertCircle, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { format, isToday, isYesterday, subDays, isAfter } from 'date-fns';
@@ -16,7 +16,7 @@ export function PredictionHistory({ farmer, onMakePrediction }: PredictionHistor
   const { t } = useTranslation();
   const [selectedPrediction, setSelectedPrediction] = useState<any>(null);
 
-  const { data: historyData, isLoading } = useQuery({
+  const { data: historyData, isLoading, isError, refetch } = useQuery({
     queryKey: ['/api/farmers', farmer.id, 'predictions'],
     enabled: !!farmer.id
   });
@@ -83,6 +83,29 @@ export function PredictionHistory({ farmer, onMakePrediction }: PredictionHistor
           <div className="text-center py-12">
             <Clock className="w-12 h-12 mx-auto mb-4 opacity-50 animate-spin text-emerald-600" />
             <p className="text-muted-foreground font-medium">Loading history...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isError) {
+    return (
+      <Card className="border-destructive/20 bg-destructive/5">
+        <CardContent className="p-6">
+          <div className="text-center py-8">
+            <AlertCircle className="w-10 h-10 mx-auto mb-3 text-destructive" />
+            <h3 className="text-base font-semibold text-destructive mb-1">Failed to load prediction history</h3>
+            <p className="text-xs text-muted-foreground mb-4">A network error occurred while retrieving your past records.</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              className="border-destructive/30 hover:bg-destructive/10 text-destructive"
+              data-testid="button-retry-prediction-history"
+            >
+              <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Try Again
+            </Button>
           </div>
         </CardContent>
       </Card>

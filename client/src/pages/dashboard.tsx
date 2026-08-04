@@ -118,6 +118,7 @@ export default function Dashboard({ farmer, onLogout }: DashboardProps) {
             <ActivityHistory 
               farmer={activeFarmer} 
               onMakePrediction={() => setActiveTab('crop-recommendation')} 
+              onContinueVoiceConversation={() => setActiveTab('voice-assistant')}
             />
           )}
         </div>
